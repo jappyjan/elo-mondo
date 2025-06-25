@@ -37,7 +37,42 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Stats Cards */}
+        {/* Mobile Priority Content - Forms and Leaderboard */}
+        <div className="block lg:hidden space-y-6 mb-8">
+          {/* Leaderboard First on Mobile */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Leaderboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {players.length > 0 ? (
+                <LeaderboardTable players={players} />
+              ) : (
+                <div className="text-center py-8">
+                  <Target className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No players yet</h3>
+                  <p className="text-muted-foreground">
+                    Add your first player to get started!
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Forms Second on Mobile */}
+          <div className="space-y-6">
+            <RecordMatchForm />
+            <AddPlayerForm />
+          </div>
+
+          {/* Recent Matches on Mobile */}
+          <RecentMatches />
+        </div>
+
+        {/* Stats Cards - Lower Priority on Mobile */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -77,8 +112,8 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Desktop Layout - Hidden on Mobile */}
+        <div className="hidden lg:grid lg:grid-cols-3 gap-8">
           {/* Left Column - Forms */}
           <div className="space-y-6">
             <AddPlayerForm />
