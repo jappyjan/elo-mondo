@@ -9,7 +9,90 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      matches: {
+        Row: {
+          created_at: string
+          elo_change: number
+          id: string
+          loser_elo_after: number
+          loser_elo_before: number
+          loser_id: string
+          winner_elo_after: number
+          winner_elo_before: number
+          winner_id: string
+        }
+        Insert: {
+          created_at?: string
+          elo_change: number
+          id?: string
+          loser_elo_after: number
+          loser_elo_before: number
+          loser_id: string
+          winner_elo_after: number
+          winner_elo_before: number
+          winner_id: string
+        }
+        Update: {
+          created_at?: string
+          elo_change?: number
+          id?: string
+          loser_elo_after?: number
+          loser_elo_before?: number
+          loser_id?: string
+          winner_elo_after?: number
+          winner_elo_before?: number
+          winner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_loser_id_fkey"
+            columns: ["loser_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      players: {
+        Row: {
+          created_at: string
+          elo_rating: number
+          id: string
+          losses: number
+          matches_played: number
+          name: string
+          updated_at: string
+          wins: number
+        }
+        Insert: {
+          created_at?: string
+          elo_rating?: number
+          id?: string
+          losses?: number
+          matches_played?: number
+          name: string
+          updated_at?: string
+          wins?: number
+        }
+        Update: {
+          created_at?: string
+          elo_rating?: number
+          id?: string
+          losses?: number
+          matches_played?: number
+          name?: string
+          updated_at?: string
+          wins?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

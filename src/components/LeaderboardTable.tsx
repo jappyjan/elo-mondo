@@ -1,0 +1,77 @@
+
+import { Player } from '@/types/darts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Trophy, Medal, Award } from 'lucide-react';
+
+interface LeaderboardTableProps {
+  players: Player[];
+}
+
+export function LeaderboardTable({ players }: LeaderboardTableProps) {
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Trophy className="h-5 w-5 text-yellow-500" />;
+      case 2:
+        return <Medal className="h-5 w-5 text-gray-400" />;
+      case 3:
+        return <Award className="h-5 w-5 text-amber-600" />;
+      default:
+        return null;
+    }
+  };
+
+  const getWinRate = (wins: number, matchesPlayed: number) => {
+    if (matchesPlayed === 0) return 0;
+    return Math.round((wins / matchesPlayed) * 100);
+  };
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-16">Rank</TableHead>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-center">Elo Rating</TableHead>
+            <TableHead className="text-center">Matches</TableHead>
+            <TableHead className="text-center">Wins</TableHead>
+            <TableHead className="text-center">Losses</TableHead>
+            <TableHead className="text-center">Win Rate</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {players.map((player, index) => (
+            <TableRow key={player.id}>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  {getRankIcon(index + 1)}
+                  #{index + 1}
+                </div>
+              </TableCell>
+              <TableCell className="font-semibold">{player.name}</TableCell>
+              <TableCell className="text-center">
+                <Badge variant="secondary" className="text-lg font-bold">
+                  {player.elo_rating}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center">{player.matches_played}</TableCell>
+              <TableCell className="text-center text-green-600 font-semibold">
+                {player.wins}
+              </TableCell>
+              <TableCell className="text-center text-red-600 font-semibold">
+                {player.losses}
+              </TableCell>
+              <TableCell className="text-center">
+                <Badge variant={getWinRate(player.wins, player.matches_played) >= 50 ? "default" : "secondary"}>
+                  {getWinRate(player.wins, player.matches_played)}%
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
