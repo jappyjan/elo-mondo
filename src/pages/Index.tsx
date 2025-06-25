@@ -15,7 +15,7 @@ const Index = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Target className="h-12 w-12 animate-spin mx-auto mb-4" />
-          <p className="text-xl text-muted-foreground">Loading leaderboard...</p>
+          <p className="text-xl text-muted-foreground">Loading EloMondo...</p>
         </div>
       </div>
     );
@@ -30,7 +30,7 @@ const Index = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-3">
             <Target className="h-10 w-10 text-primary" />
-            Darts Leaderboard
+            EloMondo
           </h1>
           <p className="text-xl text-muted-foreground">
             Track your dart games with Elo ratings
