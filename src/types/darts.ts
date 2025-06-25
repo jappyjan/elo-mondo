@@ -19,10 +19,29 @@ export interface Match {
   winner_elo_after: number;
   loser_elo_after: number;
   elo_change: number;
+  match_type: string;
+  total_players: number;
+  created_at: string;
+}
+
+export interface MatchParticipant {
+  id: string;
+  match_id: string;
+  player_id: string;
+  is_winner: boolean;
+  elo_before: number;
+  elo_after: number;
+  elo_change: number;
   created_at: string;
 }
 
 export interface MatchWithPlayers extends Match {
   winner: Player;
   loser: Player;
+  participants?: (MatchParticipant & { player: Player })[];
+}
+
+export interface MultiPlayerMatchRequest {
+  winnerId: string;
+  loserIds: string[];
 }

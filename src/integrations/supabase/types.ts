@@ -9,6 +9,54 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      match_participants: {
+        Row: {
+          created_at: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          id: string
+          is_winner: boolean
+          match_id: string
+          player_id: string
+        }
+        Insert: {
+          created_at?: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          id?: string
+          is_winner?: boolean
+          match_id: string
+          player_id: string
+        }
+        Update: {
+          created_at?: string
+          elo_after?: number
+          elo_before?: number
+          elo_change?: number
+          id?: string
+          is_winner?: boolean
+          match_id?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_match_participants_match_id"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_match_participants_player_id"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           created_at: string
@@ -17,6 +65,8 @@ export type Database = {
           loser_elo_after: number
           loser_elo_before: number
           loser_id: string
+          match_type: string
+          total_players: number
           winner_elo_after: number
           winner_elo_before: number
           winner_id: string
@@ -28,6 +78,8 @@ export type Database = {
           loser_elo_after: number
           loser_elo_before: number
           loser_id: string
+          match_type?: string
+          total_players?: number
           winner_elo_after: number
           winner_elo_before: number
           winner_id: string
@@ -39,6 +91,8 @@ export type Database = {
           loser_elo_after?: number
           loser_elo_before?: number
           loser_id?: string
+          match_type?: string
+          total_players?: number
           winner_elo_after?: number
           winner_elo_before?: number
           winner_id?: string

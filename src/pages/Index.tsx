@@ -3,8 +3,10 @@ import { usePlayers } from '@/hooks/usePlayers';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { RecordMatchForm } from '@/components/RecordMatchForm';
+import { RecordMultiPlayerMatchForm } from '@/components/RecordMultiPlayerMatchForm';
 import { RecentMatches } from '@/components/RecentMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Target, Users, Trophy } from 'lucide-react';
 
 const Index = () => {
@@ -64,7 +66,18 @@ const Index = () => {
 
           {/* Forms Second on Mobile */}
           <div className="space-y-6">
-            <RecordMatchForm />
+            <Tabs defaultValue="1v1" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="1v1">1v1 Match</TabsTrigger>
+                <TabsTrigger value="multiplayer">Multi-Player</TabsTrigger>
+              </TabsList>
+              <TabsContent value="1v1">
+                <RecordMatchForm />
+              </TabsContent>
+              <TabsContent value="multiplayer">
+                <RecordMultiPlayerMatchForm />
+              </TabsContent>
+            </Tabs>
             <AddPlayerForm />
           </div>
 
@@ -117,7 +130,18 @@ const Index = () => {
           {/* Left Column - Forms */}
           <div className="space-y-6">
             <AddPlayerForm />
-            <RecordMatchForm />
+            <Tabs defaultValue="1v1" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="1v1">1v1 Match</TabsTrigger>
+                <TabsTrigger value="multiplayer">Multi-Player</TabsTrigger>
+              </TabsList>
+              <TabsContent value="1v1">
+                <RecordMatchForm />
+              </TabsContent>
+              <TabsContent value="multiplayer">
+                <RecordMultiPlayerMatchForm />
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Middle Column - Leaderboard */}
