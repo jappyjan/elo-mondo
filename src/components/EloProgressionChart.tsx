@@ -125,7 +125,7 @@ export function EloProgressionChart() {
     players.forEach((player, index) => {
       config[player.name] = {
         label: player.name,
-        color: getPastelColor(index % colors.length),
+        color: getPastelColor(index),
       };
     });
 
