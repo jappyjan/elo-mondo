@@ -14,7 +14,11 @@ export function useMatches() {
         .select(`
           *,
           winner:players!winner_id(*),
-          loser:players!loser_id(*)
+          loser:players!loser_id(*),
+          participants:match_participants(
+            *,
+            player:players(*)
+          )
         `)
         .order('created_at', { ascending: false });
       
