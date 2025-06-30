@@ -60,6 +60,7 @@ export async function createMatchParticipants(participants: Array<{
   elo_before: number;
   elo_after: number;
   elo_change: number;
+  rank: number;
 }>) {
   const { error } = await supabase
     .from('match_participants')

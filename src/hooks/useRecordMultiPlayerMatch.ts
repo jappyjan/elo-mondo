@@ -9,84 +9,96 @@ export function useRecordMultiPlayerMatch() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ winnerId, loserIds }: MultiPlayerMatchRequest) => {
+    mutationFn: async ({ playerRankings }: MultiPlayerMatchRequest) => {
       // Get current player ratings
-      const allPlayerIds = [winnerId, ...loserIds];
-      const players = await getPlayersById(allPlayerIds);
+      const playerIds = playerRankings.map(pr => pr.playerId);
+      const players = await getPlayersById(playerIds);
       
-      const winner = players.find(p => p.id === winnerId);
-      const losers = loserIds.map(id => players.find(p => p.id === id)).filter(Boolean);
+      // Create player ratings array with ranks
+      const playerRatings = playerRankings.map(pr => {
+        const player = players.find(p => p.id === pr.playerId);
+        if (!player) throw new Error(`Player with id ${pr.playerId} not found`);
+        return {
+          playerId: pr.playerId,
+          rating: player.elo_rating,
+          rank: pr.rank
+        };
+      });
+
+      // Calculate new ratings using the multi-player ranking system
+      const eloResults = calculateMultiPlayerEloChanges(playerRatings);
       
-      if (!winner || losers.length !== loserIds.length) {
-        throw new Error('Players not found');
-      }
+      // Find winner (rank 1) and loser (highest rank) for backward compatibility
+      const winner = playerRankings.find(pr => pr.rank === 1);
+      const loser = playerRankings.reduce((prev, current) => 
+        prev.rank > current.rank ? prev : current
+      );
       
-      // Calculate new ratings for multi-player match
-      const loserRatings = losers.map(loser => loser!.elo_rating);
-      const { winnerEloChange, loserEloChanges, winnerNewRating, loserNewRatings } = 
-        calculateMultiPlayerEloChanges(winner.elo_rating, loserRatings);
+      if (!winner || !loser) throw new Error('Invalid rankings provided');
       
+      const winnerPlayer = players.find(p => p.id === winner.playerId)!;
+      const loserPlayer = players.find(p => p.id === loser.playerId)!;
+      const winnerResult = eloResults.find(r => r.playerId === winner.playerId)!;
+      const loserResult = eloResults.find(r => r.playerId === loser.playerId)!;
+
       // Create the match record
       const matchData = await createMatch({
-        winner_id: winnerId,
-        loser_id: loserIds[0], // Keep first loser for backward compatibility
-        winner_elo_before: winner.elo_rating,
-        loser_elo_before: losers[0]!.elo_rating,
-        winner_elo_after: winnerNewRating,
-        loser_elo_after: loserNewRatings[0],
-        elo_change: winnerEloChange,
+        winner_id: winner.playerId,
+        loser_id: loser.playerId,
+        winner_elo_before: winnerPlayer.elo_rating,
+        loser_elo_before: loserPlayer.elo_rating,
+        winner_elo_after: winnerResult.newRating,
+        loser_elo_after: loserResult.newRating,
+        elo_change: winnerResult.eloChange,
         match_type: 'multiplayer',
-        total_players: allPlayerIds.length
+        total_players: playerRankings.length
       });
       
       // Create match participants records
-      const participantInserts = [
-        {
+      const participantInserts = eloResults.map(result => {
+        const player = players.find(p => p.id === result.playerId)!;
+        return {
           match_id: matchData.id,
-          player_id: winnerId,
-          is_winner: true,
-          elo_before: winner.elo_rating,
-          elo_after: winnerNewRating,
-          elo_change: winnerEloChange
-        },
-        ...losers.map((loser, index) => ({
-          match_id: matchData.id,
-          player_id: loser!.id,
-          is_winner: false,
-          elo_before: loser!.elo_rating,
-          elo_after: loserNewRatings[index],
-          elo_change: -loserEloChanges[index]
-        }))
-      ];
+          player_id: result.playerId,
+          is_winner: result.rank === 1,
+          elo_before: player.elo_rating,
+          elo_after: result.newRating,
+          elo_change: result.eloChange,
+          rank: result.rank
+        };
+      });
       
       await createMatchParticipants(participantInserts);
       
-      // Update winner stats
-      await updatePlayerStats(winnerId, {
-        elo_rating: winnerNewRating,
-        matches_played: winner.matches_played + 1,
-        wins: winner.wins + 1
-      });
-      
-      // Update losers stats
-      for (let i = 0; i < losers.length; i++) {
-        const loser = losers[i]!;
-        await updatePlayerStats(loser.id, {
-          elo_rating: loserNewRatings[i],
-          matches_played: loser.matches_played + 1,
-          losses: loser.losses + 1
+      // Update all players' stats
+      for (const result of eloResults) {
+        const player = players.find(p => p.id === result.playerId)!;
+        await updatePlayerStats(result.playerId, {
+          elo_rating: result.newRating,
+          matches_played: player.matches_played + 1,
+          wins: result.rank === 1 ? player.wins + 1 : player.wins,
+          losses: result.rank !== 1 ? player.losses + 1 : player.losses
         });
       }
       
-      return { winner, losers, winnerEloChange, loserEloChanges };
+      return { 
+        players: players.map(p => {
+          const result = eloResults.find(r => r.playerId === p.id)!;
+          return { ...p, ...result };
+        })
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['players'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
-      const loserNames = data.losers.map(loser => loser!.name).join(', ');
+      
+      const sortedPlayers = data.players.sort((a, b) => a.rank - b.rank);
+      const winnerName = sortedPlayers[0].name;
+      const totalPlayers = sortedPlayers.length;
+      
       toast({
         title: "Multi-Player Match Recorded!",
-        description: `${data.winner.name} defeated ${loserNames} (+${data.winnerEloChange} Elo)`,
+        description: `${winnerName} won the ${totalPlayers}-player match!`,
       });
     },
     onError: (error: any) => {

@@ -32,6 +32,7 @@ export interface MatchParticipant {
   elo_before: number;
   elo_after: number;
   elo_change: number;
+  rank: number;
   created_at: string;
 }
 
@@ -42,6 +43,13 @@ export interface MatchWithPlayers extends Match {
 }
 
 export interface MultiPlayerMatchRequest {
-  winnerId: string;
-  loserIds: string[];
+  playerRankings: Array<{
+    playerId: string;
+    rank: number;
+  }>;
+}
+
+export interface PlayerRanking {
+  playerId: string;
+  rank: number;
 }

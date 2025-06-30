@@ -2,7 +2,7 @@
 import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { History, TrendingUp, TrendingDown } from 'lucide-react';
+import { History, TrendingUp, TrendingDown, Trophy, Medal, Award } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export function RecentMatches() {
@@ -24,6 +24,15 @@ export function RecentMatches() {
     );
   }
 
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1: return <Trophy className="h-3 w-3 text-yellow-500" />;
+      case 2: return <Medal className="h-3 w-3 text-gray-400" />;
+      case 3: return <Award className="h-3 w-3 text-amber-600" />;
+      default: return <span className="text-xs">#{rank}</span>;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -39,95 +48,78 @@ export function RecentMatches() {
               key={match.id}
               className="flex items-center justify-between p-3 border rounded-lg"
             >
-              <div className="flex items-center gap-3">
-                <div className="text-sm">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-green-600">
-                      {match.winner.name}
-                    </span>
-                    <span className="text-muted-foreground">defeated</span>
-                    {match.match_type === 'multiplayer' && match.participants ? (
-                      <span className="font-semibold text-red-600">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="text-sm flex-1">
+                  {match.match_type === 'multiplayer' && match.participants ? (
+                    <div>
+                      <div className="font-semibold text-sm mb-2">
+                        {match.total_players}-Player Match
+                      </div>
+                      <div className="space-y-1">
                         {match.participants
-                          .filter(p => !p.is_winner)
-                          .map(p => p.player.name)
-                          .join(', ')}
+                          .sort((a, b) => a.rank - b.rank)
+                          .map((participant, index) => (
+                          <div key={participant.id} className="flex items-center gap-2 text-xs">
+                            {getRankIcon(participant.rank)}
+                            <span className={participant.is_winner ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
+                              {participant.player.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {participant.elo_after} 
+                              <span className={participant.elo_change >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                ({participant.elo_change >= 0 ? '+' : ''}{participant.elo_change})
+                              </span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-green-600">
+                        {match.winner.name}
                       </span>
-                    ) : (
+                      <span className="text-muted-foreground">defeated</span>
                       <span className="font-semibold text-red-600">
                         {match.loser.name}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                     <span>
                       {formatDistanceToNow(new Date(match.created_at), { addSuffix: true })}
                     </span>
-                    {match.match_type === 'multiplayer' && (
-                      <Badge variant="secondary" className="text-xs px-1 py-0">
-                        {match.total_players}P
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-xs px-1 py-0">
+                      {match.match_type === '1v1' ? '1v1' : `${match.total_players}P`}
+                    </Badge>
                   </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                {match.match_type === 'multiplayer' && match.participants ? (
-                  <>
-                    {/* Winner Elo */}
-                    <div className="text-xs text-center">
-                      <div className="flex items-center gap-1 text-green-600">
-                        <TrendingUp className="h-3 w-3" />
-                        <span>{match.participants.find(p => p.is_winner)?.elo_after}</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        (+{match.participants.find(p => p.is_winner)?.elo_change})
-                      </div>
+              {match.match_type !== 'multiplayer' && (
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-center">
+                    <div className="flex items-center gap-1 text-green-600">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>{match.winner_elo_after}</span>
                     </div>
-                    
-                    {/* Losers Elo - show average or range */}
-                    <div className="text-xs text-center">
-                      <div className="flex items-center gap-1 text-red-600">
-                        <TrendingDown className="h-3 w-3" />
-                        <span>
-                          {Math.round(
-                            match.participants
-                              .filter(p => !p.is_winner)
-                              .reduce((sum, p) => sum + p.elo_after, 0) / 
-                            match.participants.filter(p => !p.is_winner).length
-                          )}
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        (avg)
-                      </div>
+                    <div className="text-muted-foreground">
+                      (+{match.elo_change})
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs text-center">
-                      <div className="flex items-center gap-1 text-green-600">
-                        <TrendingUp className="h-3 w-3" />
-                        <span>{match.winner_elo_after}</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        (+{match.elo_change})
-                      </div>
+                  </div>
+                  
+                  <div className="text-xs text-center">
+                    <div className="flex items-center gap-1 text-red-600">
+                      <TrendingDown className="h-3 w-3" />
+                      <span>{match.loser_elo_after}</span>
                     </div>
-                    
-                    <div className="text-xs text-center">
-                      <div className="flex items-center gap-1 text-red-600">
-                        <TrendingDown className="h-3 w-3" />
-                        <span>{match.loser_elo_after}</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        (-{match.elo_change})
-                      </div>
+                    <div className="text-muted-foreground">
+                      (-{match.elo_change})
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           

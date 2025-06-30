@@ -19,6 +19,7 @@ export type Database = {
           is_winner: boolean
           match_id: string
           player_id: string
+          rank: number
         }
         Insert: {
           created_at?: string
@@ -29,6 +30,7 @@ export type Database = {
           is_winner?: boolean
           match_id: string
           player_id: string
+          rank: number
         }
         Update: {
           created_at?: string
@@ -39,6 +41,7 @@ export type Database = {
           is_winner?: boolean
           match_id?: string
           player_id?: string
+          rank?: number
         }
         Relationships: [
           {
