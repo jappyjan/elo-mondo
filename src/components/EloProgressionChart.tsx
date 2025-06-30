@@ -159,14 +159,16 @@ export function EloProgressionChart() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer config={chartConfig} height={250} width="100%">
+        <ChartContainer config={chartConfig} className="h-[400px]">
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
-              dataKey="match" 
+              dataKey="match"
+              domain={['dataMin', 'dataMax']}
               label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
             />
-            <YAxis 
+            <YAxis
+              domain={['dataMin', 'dataMax']}
               label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
@@ -182,7 +184,7 @@ export function EloProgressionChart() {
               />
             ))}
           </LineChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
