@@ -2,8 +2,8 @@
 import { usePlayers } from '@/hooks/usePlayers';
 import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ChartContainer } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -125,7 +125,7 @@ export function EloProgressionChart() {
     players.forEach((player, index) => {
       config[player.name] = {
         label: player.name,
-        color: getPastelColor(index),
+        color: getPastelColor(index % colors.length),
       };
     });
 
@@ -163,12 +163,10 @@ export function EloProgressionChart() {
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
-              dataKey="match"
-              domain={['dataMin', 'dataMax']}
+              dataKey="match" 
               label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
             />
-            <YAxis
-              domain={['dataMin', 'dataMax']}
+            <YAxis 
               label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
