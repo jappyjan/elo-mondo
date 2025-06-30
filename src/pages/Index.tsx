@@ -5,6 +5,7 @@ import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { RecordMatchForm } from '@/components/RecordMatchForm';
 import { RecordMultiPlayerMatchForm } from '@/components/RecordMultiPlayerMatchForm';
 import { RecentMatches } from '@/components/RecentMatches';
+import { EloProgressionChart } from '@/components/EloProgressionChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Target, Users, Trophy } from 'lucide-react';
@@ -80,6 +81,9 @@ const Index = () => {
             </Tabs>
             <AddPlayerForm />
           </div>
+
+          {/* Elo Progression Chart on Mobile */}
+          <EloProgressionChart />
 
           {/* Recent Matches on Mobile */}
           <RecentMatches />
@@ -168,6 +172,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
+            <EloProgressionChart />
             <RecentMatches />
           </div>
         </div>

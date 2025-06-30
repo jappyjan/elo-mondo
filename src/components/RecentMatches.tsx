@@ -2,11 +2,20 @@
 import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { History, TrendingUp, TrendingDown, Trophy, Medal, Award } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { History, TrendingUp, TrendingDown, Trophy, Medal, Award, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useState } from 'react';
 
 export function RecentMatches() {
   const { data: matches = [], isLoading } = useMatches();
+  const [currentPage, setCurrentPage] = useState(1);
+  const matchesPerPage = 5;
+
+  const totalPages = Math.ceil(matches.length / matchesPerPage);
+  const startIndex = (currentPage - 1) * matchesPerPage;
+  const endIndex = startIndex + matchesPerPage;
+  const currentMatches = matches.slice(startIndex, endIndex);
 
   if (isLoading) {
     return (
@@ -33,6 +42,14 @@ export function RecentMatches() {
     }
   };
 
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -43,7 +60,7 @@ export function RecentMatches() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {matches.slice(0, 10).map((match) => (
+          {currentMatches.map((match) => (
             <div
               key={match.id}
               className="flex items-center justify-between p-3 border rounded-lg"
@@ -127,6 +144,34 @@ export function RecentMatches() {
             <p className="text-muted-foreground text-center py-4">
               No matches recorded yet
             </p>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>
