@@ -2,8 +2,8 @@
 import { usePlayers } from '@/hooks/usePlayers';
 import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer as ResponsiveChartContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -159,7 +159,7 @@ export function EloProgressionChart() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer config={chartConfig} className="h-[400px]">
+        <ResponsiveChartContainer config={chartConfig} className="h-[400px]">
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
@@ -182,7 +182,7 @@ export function EloProgressionChart() {
               />
             ))}
           </LineChart>
-        </ResponsiveContainer>
+        </ResponsiveChartContainer>
       </CardContent>
     </Card>
   );
