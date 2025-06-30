@@ -7,6 +7,33 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } fro
 import { TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
 
+function getPastelColor(index: number): string {
+  const pastelColors = [
+    "#AEC6CF", // pastel blue
+    "#FFB347", // pastel orange
+    "#B39EB5", // pastel purple
+    "#77DD77", // pastel green
+    "#FF6961", // pastel red
+    "#FDFD96", // pastel yellow
+    "#CFCFC4", // pastel gray
+    "#FFD1DC", // pastel pink
+    "#CB99C9", // pastel violet
+    "#F49AC2", // pastel rose
+    "#B0E0E6", // pastel powder blue
+    "#E6E6FA", // pastel lavender
+    "#D1E231", // pastel lime
+    "#FFDAC1", // pastel peach
+    "#C1E1C1", // pastel mint
+    "#FFFACD", // pastel lemon chiffon
+    "#E0BBE4", // pastel mauve
+    "#D9F9A5", // pastel light green
+    "#AFCBFF", // pastel sky blue
+    "#FFE0AC"  // pastel apricot
+  ];
+
+  return pastelColors[index % pastelColors.length];
+}
+
 export function EloProgressionChart() {
   const { data: players = [] } = usePlayers();
   const { data: matches = [] } = useMatches();
@@ -94,18 +121,11 @@ export function EloProgressionChart() {
 
   const chartConfig = useMemo(() => {
     const config: any = {};
-    const colors = [
-      'hsl(var(--chart-1))',
-      'hsl(var(--chart-2))',
-      'hsl(var(--chart-3))',
-      'hsl(var(--chart-4))',
-      'hsl(var(--chart-5))',
-    ];
 
     players.forEach((player, index) => {
       config[player.name] = {
         label: player.name,
-        color: colors[index % colors.length],
+        color: getPastelColor(index % colors.length),
       };
     });
 
