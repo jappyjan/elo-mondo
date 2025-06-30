@@ -163,10 +163,12 @@ export function EloProgressionChart() {
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
-              dataKey="match" 
+              dataKey="match"
+              domain={['dataMin', 'dataMax']}
               label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
             />
             <YAxis 
+              domain={['dataMin', 'dataMax']}
               label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
