@@ -150,7 +150,7 @@ export function EloProgressionChart() {
   }
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
@@ -159,7 +159,7 @@ export function EloProgressionChart() {
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
         <div className="w-full overflow-x-auto">
-          <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] min-w-[300px]">
+          <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full min-w-[300px]">
             <LineChart 
               data={chartData} 
               margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
