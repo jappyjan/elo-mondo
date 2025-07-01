@@ -1,4 +1,3 @@
-
 import { usePlayers } from '@/hooks/usePlayers';
 import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,33 +157,40 @@ export function EloProgressionChart() {
           Elo Progression Over Time
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px]">
-          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="match"
-              domain={['dataMin', 'dataMax']}
-              label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
-            />
-            <YAxis 
-              domain={['dataMin', 'dataMax']}
-              label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            {players.map((player, index) => (
-              <Line
-                key={player.id}
-                type="monotone"
-                dataKey={player.name}
-                stroke={chartConfig[player.name]?.color}
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                connectNulls={false}
+      <CardContent className="p-2 sm:p-6">
+        <div className="w-full overflow-x-auto">
+          <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] min-w-[300px]">
+            <LineChart 
+              data={chartData} 
+              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="match"
+                domain={['dataMin', 'dataMax']}
+                label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
+                fontSize={12}
               />
-            ))}
-          </LineChart>
-        </ChartContainer>
+              <YAxis 
+                domain={['dataMin', 'dataMax']}
+                label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
+                fontSize={12}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              {players.map((player, index) => (
+                <Line
+                  key={player.id}
+                  type="monotone"
+                  dataKey={player.name}
+                  stroke={chartConfig[player.name]?.color}
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  connectNulls={false}
+                />
+              ))}
+            </LineChart>
+          </ChartContainer>
+        </div>
       </CardContent>
     </Card>
   );
