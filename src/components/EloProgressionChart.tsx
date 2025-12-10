@@ -71,27 +71,27 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
     const playerElos: Record<string, number> = {};
     players.forEach(p => { playerElos[p.playerId] = 1000; });
     
-    // Calculate Elo up to the start of filtered range
-    const firstFilteredDate = filteredMatchHistory.length > 0 
-      ? new Date(filteredMatchHistory[0].matchDate).getTime() 
-      : Date.now();
+    // Find the global index of the first filtered match
+    const firstFilteredMatchId = filteredMatchHistory[0]?.matchId;
+    const firstFilteredGlobalIndex = allSorted.findIndex(m => m.matchId === firstFilteredMatchId);
     
-    allSorted.forEach(entry => {
-      if (new Date(entry.matchDate).getTime() < firstFilteredDate) {
-        entry.results.forEach(r => {
-          playerElos[r.playerId] = r.eloAfter;
-        });
-      }
+    // Calculate Elo up to the start of filtered range
+    allSorted.slice(0, firstFilteredGlobalIndex).forEach(entry => {
+      entry.results.forEach(r => {
+        playerElos[r.playerId] = r.eloAfter;
+      });
     });
 
-    const data: any[] = [{ match: 0, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
+    // Starting point uses the global index
+    const startMatchNumber = firstFilteredGlobalIndex > 0 ? firstFilteredGlobalIndex : 0;
+    const data: any[] = [{ match: startMatchNumber, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
 
     filteredMatchHistory.forEach((entry, index) => {
       entry.results.forEach(r => {
         playerElos[r.playerId] = r.eloAfter;
       });
       
-      const dataPoint: any = { match: index + 1 };
+      const dataPoint: any = { match: startMatchNumber + index + 1 };
       Object.entries(playerElos).forEach(([id, elo]) => {
         const name = playerNames[id];
         if (name) dataPoint[name] = Math.round(elo);
