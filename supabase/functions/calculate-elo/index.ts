@@ -49,7 +49,7 @@ function calculateExpectedScore(playerRating: number, opponentRating: number): n
   return 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
 }
 
-function applyDecay(elo: number, lastMatchDate: Date, currentDate: Date): number {
+function applyDecayFn(elo: number, lastMatchDate: Date, currentDate: Date): number {
   const daysSinceLastMatch = (currentDate.getTime() - lastMatchDate.getTime()) / (1000 * 60 * 60 * 24);
   if (daysSinceLastMatch <= 0) return elo;
   
@@ -63,7 +63,8 @@ function applyDecay(elo: number, lastMatchDate: Date, currentDate: Date): number
 function processMatch(
   match: Match,
   playerStates: Map<string, PlayerEloState>,
-  matchDate: Date
+  matchDate: Date,
+  applyDecay: boolean = true
 ): Map<string, { eloBefore: number; eloAfter: number; eloChange: number }> {
   const matchResults = new Map<string, { eloBefore: number; eloAfter: number; eloChange: number }>();
   
@@ -75,12 +76,12 @@ function processMatch(
     const winnerState = playerStates.get(winnerId) || { elo: BASE_ELO, lastMatchDate: null };
     const loserState = playerStates.get(loserId) || { elo: BASE_ELO, lastMatchDate: null };
     
-    // Apply decay before this match
-    const winnerEloBefore = winnerState.lastMatchDate 
-      ? applyDecay(winnerState.elo, winnerState.lastMatchDate, matchDate)
+    // Apply decay before this match (if enabled)
+    const winnerEloBefore = (applyDecay && winnerState.lastMatchDate)
+      ? applyDecayFn(winnerState.elo, winnerState.lastMatchDate, matchDate)
       : winnerState.elo;
-    const loserEloBefore = loserState.lastMatchDate
-      ? applyDecay(loserState.elo, loserState.lastMatchDate, matchDate)
+    const loserEloBefore = (applyDecay && loserState.lastMatchDate)
+      ? applyDecayFn(loserState.elo, loserState.lastMatchDate, matchDate)
       : loserState.elo;
     
     // Calculate Elo change
@@ -104,8 +105,8 @@ function processMatch(
     
     for (const p of participants) {
       const state = playerStates.get(p.player_id) || { elo: BASE_ELO, lastMatchDate: null };
-      const eloBefore = state.lastMatchDate 
-        ? applyDecay(state.elo, state.lastMatchDate, matchDate)
+      const eloBefore = (applyDecay && state.lastMatchDate)
+        ? applyDecayFn(state.elo, state.lastMatchDate, matchDate)
         : state.elo;
       playerRankings.push({ playerId: p.player_id, eloBefore, rank: p.rank });
     }
@@ -152,7 +153,18 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Starting Elo calculation...");
+    // Parse request body for options
+    let applyDecay = true;
+    try {
+      const body = await req.json();
+      if (typeof body.applyDecay === 'boolean') {
+        applyDecay = body.applyDecay;
+      }
+    } catch {
+      // No body or invalid JSON, use defaults
+    }
+
+    console.log(`Starting Elo calculation (decay: ${applyDecay})...`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -206,7 +218,7 @@ serve(async (req) => {
 
     for (const match of matches) {
       const matchDate = new Date(match.created_at);
-      const results = processMatch(match, playerStates, matchDate);
+      const results = processMatch(match, playerStates, matchDate, applyDecay);
       
       matchHistory.push({
         matchId: match.id,
@@ -243,8 +255,10 @@ serve(async (req) => {
       
       if (lastMatchDate) {
         daysSinceLastMatch = (now.getTime() - lastMatchDate.getTime()) / (1000 * 60 * 60 * 24);
-        currentElo = applyDecay(rawElo, lastMatchDate, now);
-        decayApplied = rawElo - currentElo;
+        if (applyDecay) {
+          currentElo = applyDecayFn(rawElo, lastMatchDate, now);
+          decayApplied = rawElo - currentElo;
+        }
       }
       
       currentRatings.push({
@@ -270,7 +284,8 @@ serve(async (req) => {
         players: currentRatings,
         matchHistory,
         calculatedAt: now.toISOString(),
-        decayHalfLifeDays: DECAY_HALF_LIFE_DAYS
+        decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
+        decayEnabled: applyDecay
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

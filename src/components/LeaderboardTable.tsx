@@ -7,9 +7,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface LeaderboardTableProps {
   players: CalculatedPlayer[];
+  showDecay?: boolean;
 }
 
-export function LeaderboardTable({ players }: LeaderboardTableProps) {
+export function LeaderboardTable({ players, showDecay = true }: LeaderboardTableProps) {
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
@@ -60,7 +61,7 @@ export function LeaderboardTable({ players }: LeaderboardTableProps) {
                         <Badge variant="secondary" className="text-lg font-bold">
                           {player.currentElo}
                         </Badge>
-                        {player.decayApplied > 0 && (
+                        {showDecay && player.decayApplied > 0 && (
                           <Clock className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
@@ -68,7 +69,7 @@ export function LeaderboardTable({ players }: LeaderboardTableProps) {
                     <TooltipContent>
                       <div className="text-sm">
                         <p>Raw Elo: {player.rawElo}</p>
-                        {player.decayApplied > 0 && (
+                        {showDecay && player.decayApplied > 0 && (
                           <>
                             <p className="text-destructive">Decay: -{player.decayApplied}</p>
                             <p className="text-muted-foreground">

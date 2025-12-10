@@ -72,6 +72,7 @@ export interface EloCalculationResponse {
   matchHistory: MatchHistoryEntry[];
   calculatedAt: string;
   decayHalfLifeDays: number;
+  decayEnabled: boolean;
 }
 
 export interface MultiPlayerMatchRequest {

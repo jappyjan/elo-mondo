@@ -1,21 +1,22 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Player, CalculatedPlayer, EloCalculationResponse } from '@/types/darts';
+import { Player, EloCalculationResponse } from '@/types/darts';
 import { toast } from '@/components/ui/use-toast';
 
 const SUPABASE_URL = "https://stzilnijaoxwqyuyryts.supabase.co";
 
 // Fetch players with calculated Elo (with decay) from edge function
-export function useCalculatedPlayers() {
+export function useCalculatedPlayers(applyDecay: boolean = true) {
   return useQuery({
-    queryKey: ['calculated-players'],
+    queryKey: ['calculated-players', applyDecay],
     queryFn: async (): Promise<EloCalculationResponse> => {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-elo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ applyDecay }),
       });
       
       if (!response.ok) {
