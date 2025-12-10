@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const BASE_ELO = 1000;
 const K_FACTOR = 32;
+// New players (< this many games) use double K-factor to converge faster
+const PROVISIONAL_THRESHOLD = 10;
+const PROVISIONAL_K_FACTOR = K_FACTOR * 2; // 64
 // Decay half-life in days - after this many days, you're 50% back to 1000
 // Choose ~45d half-life so ~90d of inactivity pulls you close to baseline
 const DECAY_HALF_LIFE_DAYS = 45;
@@ -43,6 +46,11 @@ interface Match {
 interface PlayerEloState {
   elo: number;
   lastMatchDate: Date | null;
+  matchesPlayed: number;
+}
+
+function getKFactor(matchesPlayed: number): number {
+  return matchesPlayed < PROVISIONAL_THRESHOLD ? PROVISIONAL_K_FACTOR : K_FACTOR;
 }
 
 function calculateExpectedScore(playerRating: number, opponentRating: number): number {
@@ -78,41 +86,73 @@ function processMatch(
     const winnerId = match.winner_id;
     const loserId = match.loser_id;
 
-    const winnerState = playerStates.get(winnerId) || { elo: BASE_ELO, lastMatchDate: null };
-    const loserState = playerStates.get(loserId) || { elo: BASE_ELO, lastMatchDate: null };
+    const winnerState = playerStates.get(winnerId) || { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 };
+    const loserState = playerStates.get(loserId) || { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 };
 
     const winnerEloBefore = getEffectiveElo(winnerState, matchDate, applyDecayForMatches);
     const loserEloBefore = getEffectiveElo(loserState, matchDate, applyDecayForMatches);
 
-    // Calculate Elo change
+    // Calculate Elo change - use each player's K-factor (higher for new players)
+    const winnerK = getKFactor(winnerState.matchesPlayed);
+    const loserK = getKFactor(loserState.matchesPlayed);
+
     const expectedWinner = calculateExpectedScore(winnerEloBefore, loserEloBefore);
-    const eloChange = Math.round(K_FACTOR * (1 - expectedWinner));
+    const expectedLoser = 1 - expectedWinner;
 
-    const winnerEloAfter = winnerEloBefore + eloChange;
-    const loserEloAfter = loserEloBefore - eloChange;
+    const winnerEloChange = Math.round(winnerK * (1 - expectedWinner));
+    const loserEloChange = Math.round(loserK * (0 - expectedLoser));
 
-    // Update states
-    playerStates.set(winnerId, { elo: winnerEloAfter, lastMatchDate: matchDate });
-    playerStates.set(loserId, { elo: loserEloAfter, lastMatchDate: matchDate });
+    const winnerEloAfter = winnerEloBefore + winnerEloChange;
+    const loserEloAfter = loserEloBefore + loserEloChange;
 
-    matchResults.set(winnerId, { eloBefore: winnerEloBefore, eloAfter: winnerEloAfter, eloChange });
-    matchResults.set(loserId, { eloBefore: loserEloBefore, eloAfter: loserEloAfter, eloChange: -eloChange });
+    // Update states (increment matches played)
+    playerStates.set(winnerId, {
+      elo: winnerEloAfter,
+      lastMatchDate: matchDate,
+      matchesPlayed: winnerState.matchesPlayed + 1,
+    });
+    playerStates.set(loserId, {
+      elo: loserEloAfter,
+      lastMatchDate: matchDate,
+      matchesPlayed: loserState.matchesPlayed + 1,
+    });
+
+    matchResults.set(winnerId, { eloBefore: winnerEloBefore, eloAfter: winnerEloAfter, eloChange: winnerEloChange });
+    matchResults.set(loserId, { eloBefore: loserEloBefore, eloAfter: loserEloAfter, eloChange: loserEloChange });
   } else {
     // Multi-player match
     const participants = match.participants;
-    const playerRankings: Array<{ playerId: string; eloBefore: number; rank: number }> = [];
+    const playerRankings: Array<{
+      playerId: string;
+      eloBefore: number;
+      rank: number;
+      kFactor: number;
+      matchesPlayed: number;
+    }> = [];
 
     for (const p of participants) {
-      const state = playerStates.get(p.player_id) || { elo: BASE_ELO, lastMatchDate: null };
+      const state = playerStates.get(p.player_id) || { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 };
       const eloBefore = getEffectiveElo(state, matchDate, applyDecayForMatches);
-      playerRankings.push({ playerId: p.player_id, eloBefore, rank: p.rank });
+      const kFactor = getKFactor(state.matchesPlayed);
+      playerRankings.push({
+        playerId: p.player_id,
+        eloBefore,
+        rank: p.rank,
+        kFactor,
+        matchesPlayed: state.matchesPlayed,
+      });
     }
 
     // Calculate multi-player Elo changes
     const totalPlayers = playerRankings.length;
     if (totalPlayers < 2) {
       for (const player of playerRankings) {
-        playerStates.set(player.playerId, { elo: player.eloBefore, lastMatchDate: matchDate });
+        const state = playerStates.get(player.playerId) || { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 };
+        playerStates.set(player.playerId, {
+          elo: player.eloBefore,
+          lastMatchDate: matchDate,
+          matchesPlayed: state.matchesPlayed + 1,
+        });
       }
       return matchResults;
     }
@@ -123,6 +163,7 @@ function processMatch(
       roundedChange: number;
       diff: number;
       rank: number;
+      matchesPlayed: number;
     }> = [];
     let sumRoundedChanges = 0;
 
@@ -142,7 +183,8 @@ function processMatch(
           actualScore = 0.5;
         }
 
-        totalEloChange += K_FACTOR * (actualScore - expectedScore);
+        // Use player's own K-factor (higher for new players)
+        totalEloChange += player.kFactor * (actualScore - expectedScore);
       }
 
       const rawChange = totalEloChange / (totalPlayers - 1);
@@ -155,6 +197,7 @@ function processMatch(
         roundedChange,
         diff,
         rank: player.rank,
+        matchesPlayed: player.matchesPlayed,
       });
     }
 
@@ -192,7 +235,11 @@ function processMatch(
 
     for (const change of provisionalChanges) {
       const eloAfter = change.eloBefore + change.roundedChange;
-      playerStates.set(change.playerId, { elo: eloAfter, lastMatchDate: matchDate });
+      playerStates.set(change.playerId, {
+        elo: eloAfter,
+        lastMatchDate: matchDate,
+        matchesPlayed: change.matchesPlayed + 1,
+      });
       matchResults.set(change.playerId, {
         eloBefore: change.eloBefore,
         eloAfter,
@@ -348,7 +395,7 @@ function runSimulationHarness() {
       (m.participants || []).forEach((p) => allPlayers.add(p.player_id));
     }
     for (const pid of allPlayers) {
-      states.set(pid, { elo: BASE_ELO, lastMatchDate: null });
+      states.set(pid, { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 });
     }
 
     for (const m of scenario.matches) {
@@ -372,19 +419,20 @@ function runSimulationHarness() {
     if (scenario.name === "1v1_inactivity_then_return") {
       const alice = finalRatings.find((r) => r.playerId === "alice")!;
       const bob = finalRatings.find((r) => r.playerId === "bob")!;
-      expectApproximately(scenario.name, "alice raw", alice.rawElo, 988);
-      expectApproximately(scenario.name, "bob raw", bob.rawElo, 1012);
+      // With provisional K=64 (doubled), changes are larger
+      expectApproximately(scenario.name, "alice raw", alice.rawElo, 975);
+      expectApproximately(scenario.name, "bob raw", bob.rawElo, 1025);
       expectApproximately(
         scenario.name,
         "alice decayed@+30d",
         alice.decayedElo,
-        Math.round(applyDecayFn(988, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
+        Math.round(applyDecayFn(975, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
       );
       expectApproximately(
         scenario.name,
         "bob decayed@+30d",
         bob.decayedElo,
-        Math.round(applyDecayFn(1012, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
+        Math.round(applyDecayFn(1025, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
       );
     }
 
@@ -392,46 +440,49 @@ function runSimulationHarness() {
       const carol = finalRatings.find((r) => r.playerId === "carol")!;
       const alice = finalRatings.find((r) => r.playerId === "alice")!;
       const bob = finalRatings.find((r) => r.playerId === "bob")!;
-      expectApproximately(scenario.name, "carol raw", carol.rawElo, 1016);
+      // With provisional K=64 (doubled), changes are larger
+      expectApproximately(scenario.name, "carol raw", carol.rawElo, 1032);
       expectApproximately(scenario.name, "alice raw", alice.rawElo, 1000);
-      expectApproximately(scenario.name, "bob raw", bob.rawElo, 984);
+      expectApproximately(scenario.name, "bob raw", bob.rawElo, 968);
       expectApproximately(
         scenario.name,
         "carol decayed@+30d",
         carol.decayedElo,
-        Math.round(applyDecayFn(1016, now, probeDate)),
+        Math.round(applyDecayFn(1032, now, probeDate)),
       );
       expectApproximately(scenario.name, "alice decayed@+30d", alice.decayedElo, 1000);
       expectApproximately(
         scenario.name,
         "bob decayed@+30d",
         bob.decayedElo,
-        Math.round(applyDecayFn(984, now, probeDate)),
+        Math.round(applyDecayFn(968, now, probeDate)),
       );
     }
 
     if (scenario.name === "idle_decay_120d") {
       const dave = finalRatings.find((r) => r.playerId === "dave")!;
       const erin = finalRatings.find((r) => r.playerId === "erin")!;
+      // With provisional K=64 (doubled), changes are larger
       expectApproximately(
         scenario.name,
         "dave decayed@+120d",
         dave.decayedElo,
-        Math.round(applyDecayFn(1016, now, probeDate)),
+        Math.round(applyDecayFn(1032, now, probeDate)),
       );
       expectApproximately(
         scenario.name,
         "erin decayed@+120d",
         erin.decayedElo,
-        Math.round(applyDecayFn(984, now, probeDate)),
+        Math.round(applyDecayFn(968, now, probeDate)),
       );
     }
 
     if (scenario.name === "decay_applied_in_matches") {
       const alice = finalRatings.find((r) => r.playerId === "alice")!;
       const bob = finalRatings.find((r) => r.playerId === "bob")!;
-      expectApproximately(scenario.name, "alice raw after long gap (decay applied)", alice.rawElo, 988);
-      expectApproximately(scenario.name, "bob raw after long gap (decay applied)", bob.rawElo, 1012);
+      // With provisional K=64 (doubled), changes are larger
+      expectApproximately(scenario.name, "alice raw after long gap (decay applied)", alice.rawElo, 975);
+      expectApproximately(scenario.name, "bob raw after long gap (decay applied)", bob.rawElo, 1025);
     }
 
     if (scenario.name === "ffa_rounding_zero_sum") {
@@ -509,7 +560,7 @@ serve(async (req) => {
     // Initialize player states
     const playerStates = new Map<string, PlayerEloState>();
     for (const player of players) {
-      playerStates.set(player.id, { elo: BASE_ELO, lastMatchDate: null });
+      playerStates.set(player.id, { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 });
     }
 
     // Process matches to build historical Elo data for chart
