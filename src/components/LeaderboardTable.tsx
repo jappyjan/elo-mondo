@@ -24,11 +24,6 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
     }
   };
 
-  const getWinRate = (wins: number, matchesPlayed: number) => {
-    if (matchesPlayed === 0) return 0;
-    return Math.round((wins / matchesPlayed) * 100);
-  };
-
   return (
     <div className="rounded-md border">
       <Table>
@@ -44,12 +39,12 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {players.map((player, index) => (
+          {players.map((player) => (
             <TableRow key={player.playerId}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
-                  {getRankIcon(index + 1)}
-                  #{index + 1}
+                  {getRankIcon(player.rank)}
+                  #{player.rank}
                 </div>
               </TableCell>
               <TableCell className="font-semibold">{player.playerName}</TableCell>
@@ -90,8 +85,8 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
                 {player.losses}
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant={getWinRate(player.wins, player.matchesPlayed) >= 50 ? "default" : "secondary"}>
-                  {getWinRate(player.wins, player.matchesPlayed)}%
+                <Badge variant={player.winRate >= 0.5 ? "default" : "secondary"}>
+                  {Math.round(player.winRate * 100)}%
                 </Badge>
               </TableCell>
             </TableRow>
