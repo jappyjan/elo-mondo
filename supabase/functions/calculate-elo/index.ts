@@ -601,6 +601,8 @@ serve(async (req) => {
       matchesPlayed: number;
       wins: number;
       losses: number;
+      winRate: number;
+      rank: number;
     }> = [];
 
     for (const player of players) {
@@ -620,6 +622,9 @@ serve(async (req) => {
         }
       }
 
+      // Calculate win rate (0 if no matches played)
+      const winRate = player.matches_played > 0 ? player.wins / player.matches_played : 0;
+
       currentRatings.push({
         playerId: player.id,
         playerName: player.name,
@@ -630,11 +635,34 @@ serve(async (req) => {
         matchesPlayed: player.matches_played,
         wins: player.wins,
         losses: player.losses,
+        winRate: Math.round(winRate * 1000) / 1000, // Round to 3 decimal places
+        rank: 0, // Will be assigned after sorting
       });
     }
 
-    // Sort by current Elo
-    currentRatings.sort((a, b) => b.currentElo - a.currentElo);
+    // Sort by current Elo (descending), then by win rate (descending)
+    currentRatings.sort((a, b) => {
+      if (b.currentElo !== a.currentElo) {
+        return b.currentElo - a.currentElo;
+      }
+      return b.winRate - a.winRate;
+    });
+
+    // Assign ranks - players with same Elo AND winRate share rank, next rank skips
+    for (let i = 0; i < currentRatings.length; i++) {
+      if (i === 0) {
+        currentRatings[i].rank = 1;
+      } else {
+        const prev = currentRatings[i - 1];
+        const curr = currentRatings[i];
+        // Same Elo and winRate = same rank, otherwise rank = position + 1
+        if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
+          curr.rank = prev.rank;
+        } else {
+          curr.rank = i + 1;
+        }
+      }
+    }
 
     console.log("Elo calculation complete");
 
