@@ -1,1 +1,4 @@
 project_id = "stzilnijaoxwqyuyryts"
+
+[functions.calculate-elo]
+verify_jwt = false

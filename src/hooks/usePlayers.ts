@@ -1,9 +1,35 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Player } from '@/types/darts';
+import { Player, CalculatedPlayer, EloCalculationResponse } from '@/types/darts';
 import { toast } from '@/components/ui/use-toast';
 
+const SUPABASE_URL = "https://stzilnijaoxwqyuyryts.supabase.co";
+
+// Fetch players with calculated Elo (with decay) from edge function
+export function useCalculatedPlayers() {
+  return useQuery({
+    queryKey: ['calculated-players'],
+    queryFn: async (): Promise<EloCalculationResponse> => {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-elo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to calculate Elo');
+      }
+      
+      return response.json();
+    },
+    staleTime: 10000, // Cache for 10 seconds
+  });
+}
+
+// Fetch raw players from database (for forms/dropdowns)
 export function usePlayers() {
   return useQuery({
     queryKey: ['players'],
@@ -11,7 +37,7 @@ export function usePlayers() {
       const { data, error } = await supabase
         .from('players')
         .select('*')
-        .order('elo_rating', { ascending: false });
+        .order('name', { ascending: true });
       
       if (error) throw error;
       return data as Player[];
@@ -35,6 +61,7 @@ export function useAddPlayer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['players'] });
+      queryClient.invalidateQueries({ queryKey: ['calculated-players'] });
       toast({
         title: "Success",
         description: "Player added successfully!",

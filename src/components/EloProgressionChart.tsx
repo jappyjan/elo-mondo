@@ -1,137 +1,69 @@
-import { usePlayers } from '@/hooks/usePlayers';
-import { useMatches } from '@/hooks/useMatches';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
+import { MatchHistoryEntry, CalculatedPlayer } from '@/types/darts';
 
 function getPastelColor(index: number): string {
   const pastelColors = [
-    "#AEC6CF", // pastel blue
-    "#FFB347", // pastel orange
-    "#B39EB5", // pastel purple
-    "#77DD77", // pastel green
-    "#FF6961", // pastel red
-    "#FDFD96", // pastel yellow
-    "#CFCFC4", // pastel gray
-    "#FFD1DC", // pastel pink
-    "#CB99C9", // pastel violet
-    "#F49AC2", // pastel rose
-    "#B0E0E6", // pastel powder blue
-    "#E6E6FA", // pastel lavender
-    "#D1E231", // pastel lime
-    "#FFDAC1", // pastel peach
-    "#C1E1C1", // pastel mint
-    "#FFFACD", // pastel lemon chiffon
-    "#E0BBE4", // pastel mauve
-    "#D9F9A5", // pastel light green
-    "#AFCBFF", // pastel sky blue
-    "#FFE0AC"  // pastel apricot
+    "#AEC6CF", "#FFB347", "#B39EB5", "#77DD77", "#FF6961",
+    "#FDFD96", "#CFCFC4", "#FFD1DC", "#CB99C9", "#F49AC2",
+    "#B0E0E6", "#E6E6FA", "#D1E231", "#FFDAC1", "#C1E1C1",
+    "#FFFACD", "#E0BBE4", "#D9F9A5", "#AFCBFF", "#FFE0AC"
   ];
-
   return pastelColors[index % pastelColors.length];
 }
 
-export function EloProgressionChart() {
-  const { data: players = [] } = usePlayers();
-  const { data: matches = [] } = useMatches();
+interface EloProgressionChartProps {
+  matchHistory: MatchHistoryEntry[];
+  players: CalculatedPlayer[];
+}
 
+export function EloProgressionChart({ matchHistory, players }: EloProgressionChartProps) {
   const chartData = useMemo(() => {
-    if (!matches.length || !players.length) return [];
+    if (!matchHistory.length || !players.length) return [];
 
-    // Create a map of player names for easier lookup
-    const playerNames = players.reduce((acc, player) => {
-      acc[player.id] = player.name;
+    const playerNames = players.reduce((acc, p) => {
+      acc[p.playerId] = p.playerName;
       return acc;
     }, {} as Record<string, string>);
 
-    // Create initial Elo tracking for each player
-    const playerProgress = players.reduce((acc, player) => {
-      acc[player.id] = [{ 
-        match: 0, 
-        elo: 1000, 
-        name: player.name,
-        timestamp: new Date(player.created_at).getTime()
-      }];
-      return acc;
-    }, {} as Record<string, Array<{ match: number; elo: number; name: string; timestamp: number }>>);
+    // Track Elo after each match
+    const playerElos: Record<string, number> = {};
+    players.forEach(p => { playerElos[p.playerId] = 1000; });
 
-    // Process matches in chronological order
-    const sortedMatches = [...matches].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    const data: any[] = [{ match: 0, ...Object.fromEntries(players.map(p => [p.playerName, 1000])) }];
 
-    sortedMatches.forEach((match, index) => {
-      const matchNumber = index + 1;
-      const timestamp = new Date(match.created_at).getTime();
-
-      if (match.match_type === 'multiplayer' && match.participants) {
-        // Handle multiplayer matches
-        match.participants.forEach(participant => {
-          if (playerProgress[participant.player_id]) {
-            playerProgress[participant.player_id].push({
-              match: matchNumber,
-              elo: participant.elo_after,
-              name: participant.player.name,
-              timestamp
-            });
-          }
-        });
-      } else {
-        // Handle 1v1 matches
-        if (playerProgress[match.winner_id]) {
-          playerProgress[match.winner_id].push({
-            match: matchNumber,
-            elo: match.winner_elo_after,
-            name: playerNames[match.winner_id] || 'Unknown',
-            timestamp
-          });
-        }
-
-        if (playerProgress[match.loser_id]) {
-          playerProgress[match.loser_id].push({
-            match: matchNumber,
-            elo: match.loser_elo_after,
-            name: playerNames[match.loser_id] || 'Unknown',
-            timestamp
-          });
-        }
-      }
-    });
-
-    // Convert to chart format
-    const allMatches = Array.from({ length: sortedMatches.length + 1 }, (_, i) => i);
-    
-    return allMatches.map(matchNumber => {
-      const dataPoint: any = { match: matchNumber };
-      
-      Object.entries(playerProgress).forEach(([playerId, progress]) => {
-        const playerName = playerNames[playerId] || 'Unknown';
-        // Find the latest Elo for this match number
-        const relevantProgress = progress.filter(p => p.match <= matchNumber);
-        const latestElo = relevantProgress[relevantProgress.length - 1]?.elo || 1000;
-        dataPoint[playerName] = latestElo;
+    matchHistory.forEach((entry, index) => {
+      entry.results.forEach(r => {
+        playerElos[r.playerId] = r.eloAfter;
       });
       
-      return dataPoint;
+      const dataPoint: any = { match: index + 1 };
+      Object.entries(playerElos).forEach(([id, elo]) => {
+        const name = playerNames[id];
+        if (name) dataPoint[name] = Math.round(elo);
+      });
+      data.push(dataPoint);
     });
-  }, [matches, players]);
+
+    return data;
+  }, [matchHistory, players]);
 
   const chartConfig = useMemo(() => {
     const config: any = {};
-
     players.forEach((player, index) => {
-      config[player.name] = {
-        label: player.name,
+      config[player.playerName] = {
+        label: player.playerName,
         color: getPastelColor(index),
       };
     });
-
     return config;
   }, [players]);
 
-  if (!matches.length || !players.length) {
+  if (!matchHistory.length || !players.length) {
     return (
       <Card>
         <CardHeader>
@@ -160,32 +92,19 @@ export function EloProgressionChart() {
       <CardContent className="p-2 sm:p-6">
         <div className="w-full overflow-x-auto">
           <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full min-w-[300px]">
-            <LineChart 
-              data={chartData} 
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-            >
+            <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="match"
-                domain={['dataMin', 'dataMax']}
-                label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }}
-                fontSize={12}
-              />
-              <YAxis 
-                domain={['dataMin', 'dataMax']}
-                label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }}
-                fontSize={12}
-              />
+              <XAxis dataKey="match" label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }} fontSize={12} />
+              <YAxis label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }} fontSize={12} />
               <ChartTooltip content={<ChartTooltipContent />} />
               {players.map((player, index) => (
                 <Line
-                  key={player.id}
+                  key={player.playerId}
                   type="monotone"
-                  dataKey={player.name}
-                  stroke={chartConfig[player.name]?.color}
+                  dataKey={player.playerName}
+                  stroke={chartConfig[player.playerName]?.color}
                   strokeWidth={2}
                   dot={{ r: 2 }}
-                  connectNulls={false}
                 />
               ))}
             </LineChart>

@@ -10,6 +10,19 @@ export interface Player {
   updated_at: string;
 }
 
+// Player with calculated Elo from edge function
+export interface CalculatedPlayer {
+  playerId: string;
+  playerName: string;
+  currentElo: number;
+  rawElo: number;
+  decayApplied: number;
+  daysSinceLastMatch: number | null;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+}
+
 export interface Match {
   id: string;
   winner_id: string;
@@ -40,6 +53,25 @@ export interface MatchWithPlayers extends Match {
   winner: Player;
   loser: Player;
   participants?: (MatchParticipant & { player: Player })[];
+}
+
+// Calculated match history from edge function
+export interface MatchHistoryEntry {
+  matchId: string;
+  matchDate: string;
+  results: Array<{
+    playerId: string;
+    eloBefore: number;
+    eloAfter: number;
+    eloChange: number;
+  }>;
+}
+
+export interface EloCalculationResponse {
+  players: CalculatedPlayer[];
+  matchHistory: MatchHistoryEntry[];
+  calculatedAt: string;
+  decayHalfLifeDays: number;
 }
 
 export interface MultiPlayerMatchRequest {
