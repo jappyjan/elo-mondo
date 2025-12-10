@@ -2,15 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const BASE_ELO = 1000;
 const K_FACTOR = 32;
 // Decay half-life in days - after this many days, you're 50% back to 1000
-// For ~3 months (90 days) to fully decay, we use ~30 day half-life
-const DECAY_HALF_LIFE_DAYS = 30;
+// Choose ~45d half-life so ~90d of inactivity pulls you close to baseline
+const DECAY_HALF_LIFE_DAYS = 45;
 
 interface Player {
   id: string;
@@ -52,73 +52,86 @@ function calculateExpectedScore(playerRating: number, opponentRating: number): n
 function applyDecayFn(elo: number, lastMatchDate: Date, currentDate: Date): number {
   const daysSinceLastMatch = (currentDate.getTime() - lastMatchDate.getTime()) / (1000 * 60 * 60 * 24);
   if (daysSinceLastMatch <= 0) return elo;
-  
+
   // Exponential decay towards BASE_ELO
   // decay factor = 0.5^(days/half_life)
   const decayFactor = Math.pow(0.5, daysSinceLastMatch / DECAY_HALF_LIFE_DAYS);
   const eloDiff = elo - BASE_ELO;
-  return BASE_ELO + (eloDiff * decayFactor);
+  return BASE_ELO + eloDiff * decayFactor;
+}
+
+function getEffectiveElo(state: PlayerEloState, matchDate: Date, applyDecay: boolean): number {
+  if (!applyDecay || !state.lastMatchDate) return state.elo;
+  return applyDecayFn(state.elo, state.lastMatchDate, matchDate);
 }
 
 function processMatch(
   match: Match,
   playerStates: Map<string, PlayerEloState>,
   matchDate: Date,
-  applyDecay: boolean = true
+  applyDecayForMatches: boolean,
 ): Map<string, { eloBefore: number; eloAfter: number; eloChange: number }> {
   const matchResults = new Map<string, { eloBefore: number; eloAfter: number; eloChange: number }>();
-  
-  if (match.match_type === '1v1' || match.participants.length === 0) {
+
+  if (match.match_type === "1v1" || match.participants.length === 0) {
     // 1v1 match
     const winnerId = match.winner_id;
     const loserId = match.loser_id;
-    
+
     const winnerState = playerStates.get(winnerId) || { elo: BASE_ELO, lastMatchDate: null };
     const loserState = playerStates.get(loserId) || { elo: BASE_ELO, lastMatchDate: null };
-    
-    // Apply decay before this match (if enabled)
-    const winnerEloBefore = (applyDecay && winnerState.lastMatchDate)
-      ? applyDecayFn(winnerState.elo, winnerState.lastMatchDate, matchDate)
-      : winnerState.elo;
-    const loserEloBefore = (applyDecay && loserState.lastMatchDate)
-      ? applyDecayFn(loserState.elo, loserState.lastMatchDate, matchDate)
-      : loserState.elo;
-    
+
+    const winnerEloBefore = getEffectiveElo(winnerState, matchDate, applyDecayForMatches);
+    const loserEloBefore = getEffectiveElo(loserState, matchDate, applyDecayForMatches);
+
     // Calculate Elo change
     const expectedWinner = calculateExpectedScore(winnerEloBefore, loserEloBefore);
     const eloChange = Math.round(K_FACTOR * (1 - expectedWinner));
-    
+
     const winnerEloAfter = winnerEloBefore + eloChange;
     const loserEloAfter = loserEloBefore - eloChange;
-    
+
     // Update states
     playerStates.set(winnerId, { elo: winnerEloAfter, lastMatchDate: matchDate });
     playerStates.set(loserId, { elo: loserEloAfter, lastMatchDate: matchDate });
-    
+
     matchResults.set(winnerId, { eloBefore: winnerEloBefore, eloAfter: winnerEloAfter, eloChange });
     matchResults.set(loserId, { eloBefore: loserEloBefore, eloAfter: loserEloAfter, eloChange: -eloChange });
-    
   } else {
     // Multi-player match
     const participants = match.participants;
     const playerRankings: Array<{ playerId: string; eloBefore: number; rank: number }> = [];
-    
+
     for (const p of participants) {
       const state = playerStates.get(p.player_id) || { elo: BASE_ELO, lastMatchDate: null };
-      const eloBefore = (applyDecay && state.lastMatchDate)
-        ? applyDecayFn(state.elo, state.lastMatchDate, matchDate)
-        : state.elo;
+      const eloBefore = getEffectiveElo(state, matchDate, applyDecayForMatches);
       playerRankings.push({ playerId: p.player_id, eloBefore, rank: p.rank });
     }
-    
+
     // Calculate multi-player Elo changes
     const totalPlayers = playerRankings.length;
+    if (totalPlayers < 2) {
+      for (const player of playerRankings) {
+        playerStates.set(player.playerId, { elo: player.eloBefore, lastMatchDate: matchDate });
+      }
+      return matchResults;
+    }
+
+    const provisionalChanges: Array<{
+      playerId: string;
+      eloBefore: number;
+      roundedChange: number;
+      diff: number;
+      rank: number;
+    }> = [];
+    let sumRoundedChanges = 0;
+
     for (const player of playerRankings) {
       let totalEloChange = 0;
-      
+
       for (const opponent of playerRankings) {
         if (player.playerId === opponent.playerId) continue;
-        
+
         const expectedScore = calculateExpectedScore(player.eloBefore, opponent.eloBefore);
         let actualScore: number;
         if (player.rank < opponent.rank) {
@@ -128,74 +141,369 @@ function processMatch(
         } else {
           actualScore = 0.5;
         }
-        
+
         totalEloChange += K_FACTOR * (actualScore - expectedScore);
       }
-      
-      const avgEloChange = Math.round(totalEloChange / (totalPlayers - 1));
-      const eloAfter = player.eloBefore + avgEloChange;
-      
-      playerStates.set(player.playerId, { elo: eloAfter, lastMatchDate: matchDate });
-      matchResults.set(player.playerId, { 
-        eloBefore: player.eloBefore, 
-        eloAfter, 
-        eloChange: avgEloChange 
+
+      const rawChange = totalEloChange / (totalPlayers - 1);
+      const roundedChange = Math.round(rawChange);
+      const diff = rawChange - roundedChange;
+      sumRoundedChanges += roundedChange;
+      provisionalChanges.push({
+        playerId: player.playerId,
+        eloBefore: player.eloBefore,
+        roundedChange,
+        diff,
+        rank: player.rank,
+      });
+    }
+
+    let remainder = -sumRoundedChanges;
+    if (remainder !== 0 && provisionalChanges.length > 0) {
+      const ordered = provisionalChanges.slice().sort((a, b) => {
+        if (remainder > 0) {
+          if (b.diff !== a.diff) return b.diff - a.diff;
+        } else {
+          if (a.diff !== b.diff) return a.diff - b.diff;
+        }
+        return a.playerId.localeCompare(b.playerId);
+      });
+
+      for (let i = 0; i < Math.abs(remainder); i++) {
+        const target = ordered[i % ordered.length];
+        target.roundedChange += remainder > 0 ? 1 : -1;
+      }
+    }
+
+    // Final guard to keep multi-player near zero-sum even after rounding drift
+    const finalSum = provisionalChanges.reduce((sum, change) => sum + change.roundedChange, 0);
+    if (finalSum !== 0 && provisionalChanges.length > 0) {
+      const target = provisionalChanges.reduce((best, current) => {
+        if (!best) return current;
+        const bestScore = Math.abs(best.diff);
+        const currentScore = Math.abs(current.diff);
+        if (currentScore === bestScore) {
+          return current.rank < best.rank ? current : best;
+        }
+        return currentScore < bestScore ? current : best;
+      }, provisionalChanges[0]);
+      target.roundedChange -= finalSum;
+    }
+
+    for (const change of provisionalChanges) {
+      const eloAfter = change.eloBefore + change.roundedChange;
+      playerStates.set(change.playerId, { elo: eloAfter, lastMatchDate: matchDate });
+      matchResults.set(change.playerId, {
+        eloBefore: change.eloBefore,
+        eloAfter,
+        eloChange: change.roundedChange,
       });
     }
   }
-  
+
   return matchResults;
 }
 
+// Lightweight simulation harness for regressions:
+// run with ELO_SIMULATE=1 to log deterministic scenarios to stdout.
+function runSimulationHarness() {
+  const scenarios: Array<{ name: string; matches: Match[]; decayProbeDays?: number; applyDecayInMatches?: boolean }> = [
+    {
+      name: "1v1_inactivity_then_return",
+      matches: [
+        {
+          id: "m1",
+          winner_id: "alice",
+          loser_id: "bob",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-01-01T00:00:00.000Z",
+          participants: [],
+        },
+        {
+          id: "m2",
+          winner_id: "bob",
+          loser_id: "alice",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-03-31T00:00:00.000Z", // ~90d later
+          participants: [],
+        },
+      ],
+    },
+    {
+      name: "ffa_three_players",
+      matches: [
+        {
+          id: "m3",
+          winner_id: "carol",
+          loser_id: "bob",
+          match_type: "ffa",
+          total_players: 3,
+          created_at: "2024-02-01T00:00:00.000Z",
+          participants: [
+            { match_id: "m3", player_id: "carol", is_winner: true, rank: 1, created_at: "2024-02-01T00:00:00.000Z" },
+            { match_id: "m3", player_id: "alice", is_winner: false, rank: 2, created_at: "2024-02-01T00:00:00.000Z" },
+            { match_id: "m3", player_id: "bob", is_winner: false, rank: 3, created_at: "2024-02-01T00:00:00.000Z" },
+          ],
+        },
+      ],
+    },
+    {
+      name: "idle_decay_120d",
+      matches: [
+        {
+          id: "m4",
+          winner_id: "dave",
+          loser_id: "erin",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-01-01T00:00:00.000Z",
+          participants: [],
+        },
+      ],
+      decayProbeDays: 120,
+    },
+    {
+      name: "decay_applied_in_matches",
+      matches: [
+        {
+          id: "dm1",
+          winner_id: "alice",
+          loser_id: "bob",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-01-01T00:00:00.000Z",
+          participants: [],
+        },
+        {
+          id: "dm2",
+          winner_id: "alice",
+          loser_id: "bob",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-01-02T00:00:00.000Z",
+          participants: [],
+        },
+        {
+          id: "dm3",
+          winner_id: "alice",
+          loser_id: "bob",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-01-03T00:00:00.000Z",
+          participants: [],
+        },
+        {
+          id: "dm4",
+          winner_id: "bob",
+          loser_id: "alice",
+          match_type: "1v1",
+          total_players: 2,
+          created_at: "2024-06-02T00:00:00.000Z",
+          participants: [],
+        },
+      ],
+      applyDecayInMatches: true,
+    },
+    {
+      name: "ffa_rounding_zero_sum",
+      matches: [
+        {
+          id: "m5",
+          winner_id: "w1",
+          loser_id: "l1",
+          match_type: "ffa",
+          total_players: 4,
+          created_at: "2024-02-15T00:00:00.000Z",
+          participants: [
+            { match_id: "m5", player_id: "p1", is_winner: true, rank: 1, created_at: "2024-02-15T00:00:00.000Z" },
+            { match_id: "m5", player_id: "p2", is_winner: false, rank: 2, created_at: "2024-02-15T00:00:00.000Z" },
+            { match_id: "m5", player_id: "p3", is_winner: false, rank: 3, created_at: "2024-02-15T00:00:00.000Z" },
+            { match_id: "m5", player_id: "p4", is_winner: false, rank: 4, created_at: "2024-02-15T00:00:00.000Z" },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const results: Array<{
+    name: string;
+    final: Array<{ playerId: string; rawElo: number; decayedElo: number }>;
+  }> = [];
+  const checks: Array<{ scenario: string; message: string; ok: boolean }> = [];
+
+  function expectApproximately(scenario: string, message: string, actual: number, expected: number, tolerance = 1) {
+    const ok = Math.abs(actual - expected) <= tolerance;
+    checks.push({ scenario, message: `${message} (expected ~${expected}±${tolerance}, got ${actual})`, ok });
+  }
+
+  for (const scenario of scenarios) {
+    const states = new Map<string, PlayerEloState>();
+    const allPlayers = new Set<string>();
+    const matchResultsPerScenario: Array<Map<string, { eloBefore: number; eloAfter: number; eloChange: number }>> = [];
+    for (const m of scenario.matches) {
+      allPlayers.add(m.winner_id);
+      allPlayers.add(m.loser_id);
+      (m.participants || []).forEach((p) => allPlayers.add(p.player_id));
+    }
+    for (const pid of allPlayers) {
+      states.set(pid, { elo: BASE_ELO, lastMatchDate: null });
+    }
+
+    for (const m of scenario.matches) {
+      const result = processMatch(m, states, new Date(m.created_at), scenario.applyDecayInMatches ?? true);
+      matchResultsPerScenario.push(result);
+    }
+
+    const finalRatings: Array<{ playerId: string; rawElo: number; decayedElo: number }> = [];
+    const now = new Date(scenario.matches[scenario.matches.length - 1].created_at);
+    const probeDays = scenario.decayProbeDays ?? 30;
+    const probeDate = new Date(now.getTime() + probeDays * 24 * 60 * 60 * 1000);
+    for (const pid of allPlayers) {
+      const state = states.get(pid)!;
+      const rawElo = state.elo;
+      const decayedElo = state.lastMatchDate ? applyDecayFn(rawElo, state.lastMatchDate, probeDate) : rawElo;
+      finalRatings.push({ playerId: pid, rawElo: Math.round(rawElo), decayedElo: Math.round(decayedElo) });
+    }
+
+    results.push({ name: scenario.name, final: finalRatings });
+
+    if (scenario.name === "1v1_inactivity_then_return") {
+      const alice = finalRatings.find((r) => r.playerId === "alice")!;
+      const bob = finalRatings.find((r) => r.playerId === "bob")!;
+      expectApproximately(scenario.name, "alice raw", alice.rawElo, 988);
+      expectApproximately(scenario.name, "bob raw", bob.rawElo, 1012);
+      expectApproximately(
+        scenario.name,
+        "alice decayed@+30d",
+        alice.decayedElo,
+        Math.round(applyDecayFn(988, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
+      );
+      expectApproximately(
+        scenario.name,
+        "bob decayed@+30d",
+        bob.decayedElo,
+        Math.round(applyDecayFn(1012, new Date("2024-03-31T00:00:00.000Z"), probeDate)),
+      );
+    }
+
+    if (scenario.name === "ffa_three_players") {
+      const carol = finalRatings.find((r) => r.playerId === "carol")!;
+      const alice = finalRatings.find((r) => r.playerId === "alice")!;
+      const bob = finalRatings.find((r) => r.playerId === "bob")!;
+      expectApproximately(scenario.name, "carol raw", carol.rawElo, 1016);
+      expectApproximately(scenario.name, "alice raw", alice.rawElo, 1000);
+      expectApproximately(scenario.name, "bob raw", bob.rawElo, 984);
+      expectApproximately(
+        scenario.name,
+        "carol decayed@+30d",
+        carol.decayedElo,
+        Math.round(applyDecayFn(1016, now, probeDate)),
+      );
+      expectApproximately(scenario.name, "alice decayed@+30d", alice.decayedElo, 1000);
+      expectApproximately(
+        scenario.name,
+        "bob decayed@+30d",
+        bob.decayedElo,
+        Math.round(applyDecayFn(984, now, probeDate)),
+      );
+    }
+
+    if (scenario.name === "idle_decay_120d") {
+      const dave = finalRatings.find((r) => r.playerId === "dave")!;
+      const erin = finalRatings.find((r) => r.playerId === "erin")!;
+      expectApproximately(
+        scenario.name,
+        "dave decayed@+120d",
+        dave.decayedElo,
+        Math.round(applyDecayFn(1016, now, probeDate)),
+      );
+      expectApproximately(
+        scenario.name,
+        "erin decayed@+120d",
+        erin.decayedElo,
+        Math.round(applyDecayFn(984, now, probeDate)),
+      );
+    }
+
+    if (scenario.name === "decay_applied_in_matches") {
+      const alice = finalRatings.find((r) => r.playerId === "alice")!;
+      const bob = finalRatings.find((r) => r.playerId === "bob")!;
+      expectApproximately(scenario.name, "alice raw after long gap (decay applied)", alice.rawElo, 988);
+      expectApproximately(scenario.name, "bob raw after long gap (decay applied)", bob.rawElo, 1012);
+    }
+
+    if (scenario.name === "ffa_rounding_zero_sum") {
+      const ffaResult = matchResultsPerScenario[matchResultsPerScenario.length - 1];
+      const totalChange = Array.from(ffaResult.values()).reduce((sum, change) => sum + change.eloChange, 0);
+      expectApproximately(scenario.name, "ffa rounding remains zero-sum", totalChange, 0, 0);
+    }
+  }
+
+  return { results, checks };
+}
+
+if (Deno.env.get("ELO_SIMULATE") === "1") {
+  console.log("Elo simulation harness:", JSON.stringify(runSimulationHarness(), null, 2));
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // Parse request body for options
-    let applyDecay = true;
+    let applyDecayForOutput = true;
+    let applyDecayInMatches: boolean | undefined;
     try {
       const body = await req.json();
-      if (typeof body.applyDecay === 'boolean') {
-        applyDecay = body.applyDecay;
+      if (typeof body.applyDecay === "boolean") {
+        applyDecayForOutput = body.applyDecay;
+      }
+      if (typeof body.applyDecayInMatches === "boolean") {
+        applyDecayInMatches = body.applyDecayInMatches;
       }
     } catch {
       // No body or invalid JSON, use defaults
     }
+    const applyDecayForMatches = applyDecayInMatches ?? applyDecayForOutput;
 
-    console.log(`Starting Elo calculation (decay: ${applyDecay})...`);
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log(
+      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput})...`,
+    );
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch all players
-    const { data: players, error: playersError } = await supabase
-      .from('players')
-      .select('*');
-    
+    const { data: players, error: playersError } = await supabase.from("players").select("*");
+
     if (playersError) {
       console.error("Error fetching players:", playersError);
       throw playersError;
     }
-    
+
     console.log(`Found ${players.length} players`);
 
     // Fetch all matches with participants, ordered by date
     const { data: matches, error: matchesError } = await supabase
-      .from('matches')
-      .select(`
+      .from("matches")
+      .select(
+        `
         *,
         participants:match_participants(*)
-      `)
-      .order('created_at', { ascending: true });
-    
+      `,
+      )
+      .order("created_at", { ascending: true });
+
     if (matchesError) {
       console.error("Error fetching matches:", matchesError);
       throw matchesError;
     }
-    
+
     console.log(`Found ${matches.length} matches`);
 
     // Initialize player states
@@ -218,15 +526,15 @@ serve(async (req) => {
 
     for (const match of matches) {
       const matchDate = new Date(match.created_at);
-      const results = processMatch(match, playerStates, matchDate, applyDecay);
-      
+      const results = processMatch(match, playerStates, matchDate, applyDecayForMatches);
+
       matchHistory.push({
         matchId: match.id,
         matchDate: match.created_at,
         results: Array.from(results.entries()).map(([playerId, data]) => ({
           playerId,
-          ...data
-        }))
+          ...data,
+        })),
       });
     }
 
@@ -248,19 +556,19 @@ serve(async (req) => {
       const state = playerStates.get(player.id);
       const rawElo = state?.elo || BASE_ELO;
       const lastMatchDate = state?.lastMatchDate;
-      
+
       let currentElo = rawElo;
       let daysSinceLastMatch: number | null = null;
       let decayApplied = 0;
-      
+
       if (lastMatchDate) {
         daysSinceLastMatch = (now.getTime() - lastMatchDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (applyDecay) {
+        if (applyDecayForOutput) {
           currentElo = applyDecayFn(rawElo, lastMatchDate, now);
           decayApplied = rawElo - currentElo;
         }
       }
-      
+
       currentRatings.push({
         playerId: player.id,
         playerName: player.name,
@@ -270,7 +578,7 @@ serve(async (req) => {
         daysSinceLastMatch: daysSinceLastMatch !== null ? Math.round(daysSinceLastMatch) : null,
         matchesPlayed: player.matches_played,
         wins: player.wins,
-        losses: player.losses
+        losses: player.losses,
       });
     }
 
@@ -280,27 +588,24 @@ serve(async (req) => {
     console.log("Elo calculation complete");
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         players: currentRatings,
         matchHistory,
         calculatedAt: now.toISOString(),
         decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
-        decayEnabled: applyDecay
+        decayEnabled: applyDecayForOutput,
+        decayAppliedInMatches: applyDecayForMatches,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
     );
-
   } catch (error) {
     console.error("Error in calculate-elo function:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
