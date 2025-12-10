@@ -158,7 +158,28 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="match" label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }} fontSize={12} />
               <YAxis domain={['auto', 'auto']} label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }} fontSize={12} />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip 
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const matchNum = payload[0]?.payload?.match;
+                  return (
+                    <div className="rounded-lg border bg-background p-2 shadow-sm">
+                      <div className="font-medium mb-1">Match #{matchNum}</div>
+                      <div className="grid gap-1">
+                        {payload.map((entry: any) => (
+                          <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-sm">
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                              <span className="text-muted-foreground">{entry.dataKey}</span>
+                            </div>
+                            <span className="font-medium">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
               {players.map((player, index) => (
                 <Line
                   key={player.playerId}
