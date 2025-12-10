@@ -1,25 +1,39 @@
 
-import { usePlayers } from '@/hooks/usePlayers';
+import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { EloProgressionChart } from '@/components/EloProgressionChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Target, Users, Trophy } from 'lucide-react';
+import { Target, Users, Trophy, Clock } from 'lucide-react';
 
 const Dashboard = () => {
-  const { data: players = [], isLoading } = usePlayers();
+  const { data: eloData, isLoading, error } = useCalculatedPlayers();
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Target className="h-12 w-12 animate-spin mx-auto mb-4" />
-          <p className="text-xl text-muted-foreground">Loading dashboard...</p>
+          <p className="text-xl text-muted-foreground">Calculating Elo ratings...</p>
         </div>
       </div>
     );
   }
 
-  const totalMatches = players.reduce((sum, player) => sum + player.matches_played, 0) / 2;
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center text-destructive">
+          <p className="text-xl">Error loading data</p>
+          <p className="text-sm">{(error as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const players = eloData?.players || [];
+  const matchHistory = eloData?.matchHistory || [];
+  const totalMatches = players.reduce((sum, player) => sum + player.matchesPlayed, 0) / 2;
+  const topPlayer = players[0];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -27,6 +41,10 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-muted-foreground">
           Overview of your dart league performance
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+          <Clock className="h-3 w-3" />
+          Elo decays towards 1000 after ~3 months of inactivity
         </p>
       </div>
 
@@ -59,11 +77,12 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {players.length > 0 ? players[0].name : 'None yet'}
+              {topPlayer ? topPlayer.playerName : 'None yet'}
             </div>
-            {players.length > 0 && (
+            {topPlayer && (
               <p className="text-xs text-muted-foreground">
-                {players[0].elo_rating} Elo
+                {topPlayer.currentElo} Elo
+                {topPlayer.decayApplied > 0 && ` (-${topPlayer.decayApplied} decay)`}
               </p>
             )}
           </CardContent>
@@ -96,7 +115,7 @@ const Dashboard = () => {
       </div>
 
       {/* Elo Progression Chart */}
-      <EloProgressionChart />
+      <EloProgressionChart matchHistory={matchHistory} players={players} />
     </div>
   );
 };

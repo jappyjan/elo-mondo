@@ -1,11 +1,12 @@
 
-import { Player } from '@/types/darts';
+import { CalculatedPlayer } from '@/types/darts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Medal, Award } from 'lucide-react';
+import { Trophy, Medal, Award, Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LeaderboardTableProps {
-  players: Player[];
+  players: CalculatedPlayer[];
 }
 
 export function LeaderboardTable({ players }: LeaderboardTableProps) {
@@ -43,20 +44,44 @@ export function LeaderboardTable({ players }: LeaderboardTableProps) {
         </TableHeader>
         <TableBody>
           {players.map((player, index) => (
-            <TableRow key={player.id}>
+            <TableRow key={player.playerId}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
                   {getRankIcon(index + 1)}
                   #{index + 1}
                 </div>
               </TableCell>
-              <TableCell className="font-semibold">{player.name}</TableCell>
+              <TableCell className="font-semibold">{player.playerName}</TableCell>
               <TableCell className="text-center">
-                <Badge variant="secondary" className="text-lg font-bold">
-                  {player.elo_rating}
-                </Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center justify-center gap-1">
+                        <Badge variant="secondary" className="text-lg font-bold">
+                          {player.currentElo}
+                        </Badge>
+                        {player.decayApplied > 0 && (
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-sm">
+                        <p>Raw Elo: {player.rawElo}</p>
+                        {player.decayApplied > 0 && (
+                          <>
+                            <p className="text-destructive">Decay: -{player.decayApplied}</p>
+                            <p className="text-muted-foreground">
+                              {player.daysSinceLastMatch} days since last match
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </TableCell>
-              <TableCell className="text-center">{player.matches_played}</TableCell>
+              <TableCell className="text-center">{player.matchesPlayed}</TableCell>
               <TableCell className="text-center text-green-600 font-semibold">
                 {player.wins}
               </TableCell>
@@ -64,8 +89,8 @@ export function LeaderboardTable({ players }: LeaderboardTableProps) {
                 {player.losses}
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant={getWinRate(player.wins, player.matches_played) >= 50 ? "default" : "secondary"}>
-                  {getWinRate(player.wins, player.matches_played)}%
+                <Badge variant={getWinRate(player.wins, player.matchesPlayed) >= 50 ? "default" : "secondary"}>
+                  {getWinRate(player.wins, player.matchesPlayed)}%
                 </Badge>
               </TableCell>
             </TableRow>
