@@ -21,6 +21,8 @@ export interface CalculatedPlayer {
   matchesPlayed: number;
   wins: number;
   losses: number;
+  winRate: number;
+  rank: number;
 }
 
 export interface Match {
