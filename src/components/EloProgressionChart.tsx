@@ -1,10 +1,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { MatchHistoryEntry, CalculatedPlayer } from '@/types/darts';
+
+type RangeOption = 'all' | 'last15' | 'lastMonth' | 'last3Months' | 'lastYear';
 
 function getPastelColor(index: number): string {
   const pastelColors = [
@@ -22,21 +25,68 @@ interface EloProgressionChartProps {
 }
 
 export function EloProgressionChart({ matchHistory, players }: EloProgressionChartProps) {
+  const [range, setRange] = useState<RangeOption>('all');
+
+  const filteredMatchHistory = useMemo(() => {
+    if (!matchHistory.length) return [];
+    
+    const now = new Date();
+    const sortedHistory = [...matchHistory].sort((a, b) => 
+      new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+    );
+    
+    switch (range) {
+      case 'last15':
+        return sortedHistory.slice(-15);
+      case 'lastMonth': {
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return sortedHistory.filter(m => new Date(m.matchDate) >= oneMonthAgo);
+      }
+      case 'last3Months': {
+        const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return sortedHistory.filter(m => new Date(m.matchDate) >= threeMonthsAgo);
+      }
+      case 'lastYear': {
+        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        return sortedHistory.filter(m => new Date(m.matchDate) >= oneYearAgo);
+      }
+      default:
+        return sortedHistory;
+    }
+  }, [matchHistory, range]);
+
   const chartData = useMemo(() => {
-    if (!matchHistory.length || !players.length) return [];
+    if (!filteredMatchHistory.length || !players.length) return [];
 
     const playerNames = players.reduce((acc, p) => {
       acc[p.playerId] = p.playerName;
       return acc;
     }, {} as Record<string, string>);
 
-    // Track Elo after each match
+    // Find the starting Elo for each player at the beginning of the filtered range
+    const allSorted = [...matchHistory].sort((a, b) => 
+      new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+    );
+    
     const playerElos: Record<string, number> = {};
     players.forEach(p => { playerElos[p.playerId] = 1000; });
+    
+    // Calculate Elo up to the start of filtered range
+    const firstFilteredDate = filteredMatchHistory.length > 0 
+      ? new Date(filteredMatchHistory[0].matchDate).getTime() 
+      : Date.now();
+    
+    allSorted.forEach(entry => {
+      if (new Date(entry.matchDate).getTime() < firstFilteredDate) {
+        entry.results.forEach(r => {
+          playerElos[r.playerId] = r.eloAfter;
+        });
+      }
+    });
 
-    const data: any[] = [{ match: 0, ...Object.fromEntries(players.map(p => [p.playerName, 1000])) }];
+    const data: any[] = [{ match: 0, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
 
-    matchHistory.forEach((entry, index) => {
+    filteredMatchHistory.forEach((entry, index) => {
       entry.results.forEach(r => {
         playerElos[r.playerId] = r.eloAfter;
       });
@@ -50,7 +100,7 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
     });
 
     return data;
-  }, [matchHistory, players]);
+  }, [filteredMatchHistory, players, matchHistory]);
 
   const chartConfig = useMemo(() => {
     const config: any = {};
@@ -83,11 +133,23 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
 
   return (
     <Card className="w-full">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           Elo Progression Over Time
         </CardTitle>
+        <Select value={range} onValueChange={(v) => setRange(v as RangeOption)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Matches</SelectItem>
+            <SelectItem value="last15">Last 15</SelectItem>
+            <SelectItem value="lastMonth">Last Month</SelectItem>
+            <SelectItem value="last3Months">Last 3 Months</SelectItem>
+            <SelectItem value="lastYear">Last Year</SelectItem>
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
         <div className="w-full overflow-x-auto">
@@ -95,7 +157,7 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="match" label={{ value: 'Match Number', position: 'insideBottom', offset: -5 }} fontSize={12} />
-              <YAxis label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }} fontSize={12} />
+              <YAxis domain={['auto', 'auto']} label={{ value: 'Elo Rating', angle: -90, position: 'insideLeft' }} fontSize={12} />
               <ChartTooltip content={<ChartTooltipContent />} />
               {players.map((player, index) => (
                 <Line
