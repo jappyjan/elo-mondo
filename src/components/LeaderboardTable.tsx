@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { CalculatedPlayer } from '@/types/darts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,15 +9,12 @@ import { Label } from '@/components/ui/label';
 interface LeaderboardTableProps {
   players: CalculatedPlayer[];
   showDecay?: boolean;
+  showProvisional: boolean;
+  onShowProvisionalChange: (value: boolean) => void;
+  provisionalCount: number;
 }
 
-export function LeaderboardTable({ players, showDecay = true }: LeaderboardTableProps) {
-  const [showProvisional, setShowProvisional] = useState(false);
-  
-  const qualifiedPlayers = players.filter(p => !p.isProvisional);
-  const provisionalPlayers = players.filter(p => p.isProvisional);
-  const displayedPlayers = showProvisional ? players : qualifiedPlayers;
-
+export function LeaderboardTable({ players, showDecay = true, showProvisional, onShowProvisionalChange, provisionalCount }: LeaderboardTableProps) {
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
@@ -34,15 +30,15 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
 
   return (
     <div className="rounded-md border">
-      {provisionalPlayers.length > 0 && (
+      {provisionalCount > 0 && (
         <div className="flex items-center justify-end gap-2 p-3 border-b">
           <Switch
             id="show-provisional"
             checked={showProvisional}
-            onCheckedChange={setShowProvisional}
+            onCheckedChange={onShowProvisionalChange}
           />
           <Label htmlFor="show-provisional" className="text-sm text-muted-foreground cursor-pointer">
-            Show provisional ({provisionalPlayers.length})
+            Show provisional ({provisionalCount})
           </Label>
         </div>
       )}
@@ -59,7 +55,7 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {displayedPlayers.map((player) => (
+          {players.map((player) => (
             <TableRow key={player.playerId} className={player.isProvisional ? "opacity-60" : ""}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">

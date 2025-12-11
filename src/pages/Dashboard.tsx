@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { EloProgressionChart } from '@/components/EloProgressionChart';
@@ -12,9 +12,10 @@ import { Target, Users, Trophy, Clock, Calendar } from 'lucide-react';
 const Dashboard = () => {
   const [decayEnabled, setDecayEnabled] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [showProvisional, setShowProvisional] = useState(false);
   
   // First fetch without year to get available years
-  const { data: initialData } = useCalculatedPlayers(decayEnabled, null);
+  const { data: initialData } = useCalculatedPlayers(decayEnabled, null, true);
   
   // Set current year as default when data loads
   useEffect(() => {
@@ -27,10 +28,19 @@ const Dashboard = () => {
     }
   }, [initialData?.availableYears, selectedYear]);
   
-  // Fetch with selected year
-  const { data: eloData, isLoading, error } = useCalculatedPlayers(decayEnabled, selectedYear);
+  // Fetch all players (including provisional) to get the count
+  const { data: allPlayersData } = useCalculatedPlayers(decayEnabled, selectedYear, true);
+  
+  // Fetch with selected year and provisional filter
+  const { data: eloData, isLoading, error } = useCalculatedPlayers(decayEnabled, selectedYear, showProvisional);
 
   const availableYears = initialData?.availableYears || [];
+  
+  // Calculate provisional count from full data
+  const provisionalCount = useMemo(() => {
+    if (!allPlayersData?.players) return 0;
+    return allPlayersData.players.filter(p => p.isProvisional).length;
+  }, [allPlayersData?.players]);
 
   if (isLoading && !eloData) {
     return (
@@ -170,8 +180,14 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {players.length > 0 ? (
-              <LeaderboardTable players={players} showDecay={decayEnabled} />
+            {players.length > 0 || provisionalCount > 0 ? (
+              <LeaderboardTable 
+                players={players} 
+                showDecay={decayEnabled}
+                showProvisional={showProvisional}
+                onShowProvisionalChange={setShowProvisional}
+                provisionalCount={provisionalCount}
+              />
             ) : (
               <div className="text-center py-8">
                 <Target className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
