@@ -778,23 +778,19 @@ serve(async (req) => {
       }
     }
 
-    // Separate qualified and provisional players
-    const qualifiedPlayers = currentRatings.filter(p => !p.isProvisional);
-    const provisionalPlayers = currentRatings.filter(p => p.isProvisional);
-
-    // Sort qualified players by current Elo (descending), then by win rate (descending)
-    qualifiedPlayers.sort((a, b) => {
+    // Sort all players by current Elo (descending), then by win rate (descending)
+    currentRatings.sort((a, b) => {
       if (b.currentElo !== a.currentElo) return b.currentElo - a.currentElo;
       return b.winRate - a.winRate;
     });
 
-    // Assign ranks only to qualified players
-    for (let i = 0; i < qualifiedPlayers.length; i++) {
+    // Assign ranks to all players together
+    for (let i = 0; i < currentRatings.length; i++) {
       if (i === 0) {
-        qualifiedPlayers[i].rank = 1;
+        currentRatings[i].rank = 1;
       } else {
-        const prev = qualifiedPlayers[i - 1];
-        const curr = qualifiedPlayers[i];
+        const prev = currentRatings[i - 1];
+        const curr = currentRatings[i];
         if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
           curr.rank = prev.rank;
         } else {
@@ -803,29 +799,7 @@ serve(async (req) => {
       }
     }
 
-    // Sort provisional players similarly but assign ranks after qualified
-    provisionalPlayers.sort((a, b) => {
-      if (b.currentElo !== a.currentElo) return b.currentElo - a.currentElo;
-      return b.winRate - a.winRate;
-    });
-
-    const startRankForProvisional = qualifiedPlayers.length + 1;
-    for (let i = 0; i < provisionalPlayers.length; i++) {
-      if (i === 0) {
-        provisionalPlayers[i].rank = startRankForProvisional;
-      } else {
-        const prev = provisionalPlayers[i - 1];
-        const curr = provisionalPlayers[i];
-        if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
-          curr.rank = prev.rank;
-        } else {
-          curr.rank = startRankForProvisional + i;
-        }
-      }
-    }
-
-    // Combine back: qualified first, then provisional
-    const sortedRatings = [...qualifiedPlayers, ...provisionalPlayers];
+    const sortedRatings = currentRatings;
 
     console.log("Elo calculation complete");
 
