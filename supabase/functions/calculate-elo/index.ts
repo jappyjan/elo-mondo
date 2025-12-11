@@ -597,6 +597,7 @@ serve(async (req) => {
     let applyDecayForOutput = true;
     let applyDecayInMatches: boolean | undefined;
     let selectedYear: number = defaultYear;
+    let includeProvisional = true;
     try {
       const body = await req.json();
       if (typeof body.applyDecay === "boolean") {
@@ -608,6 +609,9 @@ serve(async (req) => {
       if (typeof body.year === "number") {
         selectedYear = body.year;
       }
+      if (typeof body.includeProvisional === "boolean") {
+        includeProvisional = body.includeProvisional;
+      }
     } catch {
       // No body or invalid JSON, use defaults
     }
@@ -615,7 +619,7 @@ serve(async (req) => {
     const applyDecayForMatches = applyDecayInMatches ?? false;
 
     console.log(
-      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear})...`,
+      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear}, include provisional: ${includeProvisional})...`,
     );
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -778,19 +782,22 @@ serve(async (req) => {
       }
     }
 
-    // Sort all players by current Elo (descending), then by win rate (descending)
-    currentRatings.sort((a, b) => {
+    // Optionally filter out provisional players before ranking to avoid gaps
+    const filteredRatings = includeProvisional ? currentRatings : currentRatings.filter((p) => !p.isProvisional);
+
+    // Sort players by current Elo (descending), then by win rate (descending)
+    filteredRatings.sort((a, b) => {
       if (b.currentElo !== a.currentElo) return b.currentElo - a.currentElo;
       return b.winRate - a.winRate;
     });
 
-    // Assign ranks to all players together
-    for (let i = 0; i < currentRatings.length; i++) {
+    // Assign ranks after filtering to avoid gaps when provisional players are hidden
+    for (let i = 0; i < filteredRatings.length; i++) {
       if (i === 0) {
-        currentRatings[i].rank = 1;
+        filteredRatings[i].rank = 1;
       } else {
-        const prev = currentRatings[i - 1];
-        const curr = currentRatings[i];
+        const prev = filteredRatings[i - 1];
+        const curr = filteredRatings[i];
         if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
           curr.rank = prev.rank;
         } else {
@@ -799,7 +806,7 @@ serve(async (req) => {
       }
     }
 
-    const sortedRatings = currentRatings;
+    const sortedRatings = filteredRatings;
 
     console.log("Elo calculation complete");
 
