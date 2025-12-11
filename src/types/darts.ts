@@ -75,6 +75,8 @@ export interface EloCalculationResponse {
   calculatedAt: string;
   decayHalfLifeDays: number;
   decayEnabled: boolean;
+  availableYears: number[];
+  selectedYear: number | null;
 }
 
 export interface MultiPlayerMatchRequest {
