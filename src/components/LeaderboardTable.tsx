@@ -7,8 +7,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
-const PROVISIONAL_THRESHOLD = 10;
-
 interface LeaderboardTableProps {
   players: CalculatedPlayer[];
   showDecay?: boolean;
@@ -17,8 +15,8 @@ interface LeaderboardTableProps {
 export function LeaderboardTable({ players, showDecay = true }: LeaderboardTableProps) {
   const [showProvisional, setShowProvisional] = useState(false);
   
-  const qualifiedPlayers = players.filter(p => p.matchesPlayed >= PROVISIONAL_THRESHOLD);
-  const provisionalPlayers = players.filter(p => p.matchesPlayed < PROVISIONAL_THRESHOLD);
+  const qualifiedPlayers = players.filter(p => !p.isProvisional);
+  const provisionalPlayers = players.filter(p => p.isProvisional);
   const displayedPlayers = showProvisional ? players : qualifiedPlayers;
 
   const getRankIcon = (rank: number) => {
@@ -62,7 +60,7 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
         </TableHeader>
         <TableBody>
           {displayedPlayers.map((player) => (
-            <TableRow key={player.playerId} className={player.matchesPlayed < PROVISIONAL_THRESHOLD ? "opacity-60" : ""}>
+            <TableRow key={player.playerId} className={player.isProvisional ? "opacity-60" : ""}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
                   {getRankIcon(player.rank)}
@@ -71,7 +69,7 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
               </TableCell>
               <TableCell className="font-semibold">
                 {player.playerName}
-                {player.matchesPlayed < PROVISIONAL_THRESHOLD && (
+                {player.isProvisional && (
                   <Badge variant="outline" className="ml-2 text-xs">Provisional</Badge>
                 )}
               </TableCell>

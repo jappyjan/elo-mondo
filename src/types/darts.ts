@@ -23,6 +23,7 @@ export interface CalculatedPlayer {
   losses: number;
   winRate: number;
   rank: number;
+  isProvisional: boolean;
 }
 
 export interface Match {
