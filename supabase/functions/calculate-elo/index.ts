@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const BASE_ELO = 1000;
-const K_FACTOR = 32;
+const K_FACTOR = 50;
 // New players (< this many games) use double K-factor to converge faster
 const PROVISIONAL_THRESHOLD = 10;
 const PROVISIONAL_K_FACTOR = K_FACTOR * 2; // 64
@@ -526,7 +526,7 @@ serve(async (req) => {
     const applyDecayForMatches = applyDecayInMatches ?? applyDecayForOutput;
 
     console.log(
-      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear || 'all'})...`,
+      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear || "all"})...`,
     );
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -560,10 +560,12 @@ serve(async (req) => {
     }
 
     // Extract available years from matches
-    const availableYears = [...new Set(allMatches.map((m: any) => new Date(m.created_at).getFullYear()))].sort((a, b) => b - a);
-    
+    const availableYears = [...new Set(allMatches.map((m: any) => new Date(m.created_at).getFullYear()))].sort(
+      (a, b) => b - a,
+    );
+
     // Filter matches by year if specified
-    const matches = selectedYear 
+    const matches = selectedYear
       ? allMatches.filter((m: any) => new Date(m.created_at).getFullYear() === selectedYear)
       : allMatches;
 
