@@ -508,6 +508,7 @@ serve(async (req) => {
     // Parse request body for options
     let applyDecayForOutput = true;
     let applyDecayInMatches: boolean | undefined;
+    let selectedYear: number | null = null;
     try {
       const body = await req.json();
       if (typeof body.applyDecay === "boolean") {
@@ -516,13 +517,16 @@ serve(async (req) => {
       if (typeof body.applyDecayInMatches === "boolean") {
         applyDecayInMatches = body.applyDecayInMatches;
       }
+      if (typeof body.year === "number") {
+        selectedYear = body.year;
+      }
     } catch {
       // No body or invalid JSON, use defaults
     }
     const applyDecayForMatches = applyDecayInMatches ?? applyDecayForOutput;
 
     console.log(
-      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput})...`,
+      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear || 'all'})...`,
     );
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -540,7 +544,7 @@ serve(async (req) => {
     console.log(`Found ${players.length} players`);
 
     // Fetch all matches with participants, ordered by date
-    const { data: matches, error: matchesError } = await supabase
+    const { data: allMatches, error: matchesError } = await supabase
       .from("matches")
       .select(
         `
@@ -555,12 +559,22 @@ serve(async (req) => {
       throw matchesError;
     }
 
-    console.log(`Found ${matches.length} matches`);
+    // Extract available years from matches
+    const availableYears = [...new Set(allMatches.map((m: any) => new Date(m.created_at).getFullYear()))].sort((a, b) => b - a);
+    
+    // Filter matches by year if specified
+    const matches = selectedYear 
+      ? allMatches.filter((m: any) => new Date(m.created_at).getFullYear() === selectedYear)
+      : allMatches;
 
-    // Initialize player states
+    console.log(`Found ${allMatches.length} total matches, ${matches.length} in selected period`);
+
+    // Initialize player states and track year-specific stats
     const playerStates = new Map<string, PlayerEloState>();
+    const playerYearStats = new Map<string, { wins: number; losses: number; matchesPlayed: number }>();
     for (const player of players) {
       playerStates.set(player.id, { elo: BASE_ELO, lastMatchDate: null, matchesPlayed: 0 });
+      playerYearStats.set(player.id, { wins: 0, losses: 0, matchesPlayed: 0 });
     }
 
     // Process matches to build historical Elo data for chart
@@ -578,6 +592,28 @@ serve(async (req) => {
     for (const match of matches) {
       const matchDate = new Date(match.created_at);
       const results = processMatch(match, playerStates, matchDate, applyDecayForMatches);
+
+      // Track year-specific stats
+      if (match.match_type === "1v1" || !match.participants?.length) {
+        // 1v1 match
+        const winnerStats = playerYearStats.get(match.winner_id) || { wins: 0, losses: 0, matchesPlayed: 0 };
+        const loserStats = playerYearStats.get(match.loser_id) || { wins: 0, losses: 0, matchesPlayed: 0 };
+        winnerStats.wins += 1;
+        winnerStats.matchesPlayed += 1;
+        loserStats.losses += 1;
+        loserStats.matchesPlayed += 1;
+        playerYearStats.set(match.winner_id, winnerStats);
+        playerYearStats.set(match.loser_id, loserStats);
+      } else {
+        // Multi-player match
+        for (const p of match.participants) {
+          const stats = playerYearStats.get(p.player_id) || { wins: 0, losses: 0, matchesPlayed: 0 };
+          stats.matchesPlayed += 1;
+          if (p.rank === 1) stats.wins += 1;
+          if (p.rank === match.total_players) stats.losses += 1;
+          playerYearStats.set(p.player_id, stats);
+        }
+      }
 
       matchHistory.push({
         matchId: match.id,
@@ -622,22 +658,26 @@ serve(async (req) => {
         }
       }
 
-      // Calculate win rate (0 if no matches played)
-      const winRate = player.matches_played > 0 ? player.wins / player.matches_played : 0;
+      // Use year-specific stats instead of all-time stats
+      const yearStats = playerYearStats.get(player.id) || { wins: 0, losses: 0, matchesPlayed: 0 };
+      const winRate = yearStats.matchesPlayed > 0 ? yearStats.wins / yearStats.matchesPlayed : 0;
 
-      currentRatings.push({
-        playerId: player.id,
-        playerName: player.name,
-        currentElo: Math.round(currentElo),
-        rawElo: Math.round(rawElo),
-        decayApplied: Math.round(decayApplied),
-        daysSinceLastMatch: daysSinceLastMatch !== null ? Math.round(daysSinceLastMatch) : null,
-        matchesPlayed: player.matches_played,
-        wins: player.wins,
-        losses: player.losses,
-        winRate: Math.round(winRate * 1000) / 1000, // Round to 3 decimal places
-        rank: 0, // Will be assigned after sorting
-      });
+      // Only include players who played in the selected year (or all if no year selected)
+      if (!selectedYear || yearStats.matchesPlayed > 0) {
+        currentRatings.push({
+          playerId: player.id,
+          playerName: player.name,
+          currentElo: Math.round(currentElo),
+          rawElo: Math.round(rawElo),
+          decayApplied: Math.round(decayApplied),
+          daysSinceLastMatch: daysSinceLastMatch !== null ? Math.round(daysSinceLastMatch) : null,
+          matchesPlayed: yearStats.matchesPlayed,
+          wins: yearStats.wins,
+          losses: yearStats.losses,
+          winRate: Math.round(winRate * 1000) / 1000, // Round to 3 decimal places
+          rank: 0, // Will be assigned after sorting
+        });
+      }
     }
 
     // Sort by current Elo (descending), then by win rate (descending)
@@ -674,6 +714,8 @@ serve(async (req) => {
         decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
         decayEnabled: applyDecayForOutput,
         decayAppliedInMatches: applyDecayForMatches,
+        availableYears,
+        selectedYear,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

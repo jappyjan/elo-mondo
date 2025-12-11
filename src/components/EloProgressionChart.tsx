@@ -22,9 +22,10 @@ function getPastelColor(index: number): string {
 interface EloProgressionChartProps {
   matchHistory: MatchHistoryEntry[];
   players: CalculatedPlayer[];
+  year?: number | null;
 }
 
-export function EloProgressionChart({ matchHistory, players }: EloProgressionChartProps) {
+export function EloProgressionChart({ matchHistory, players, year }: EloProgressionChartProps) {
   const [range, setRange] = useState<RangeOption>('all');
 
   const filteredMatchHistory = useMemo(() => {
@@ -136,7 +137,7 @@ export function EloProgressionChart({ matchHistory, players }: EloProgressionCha
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Elo Progression Over Time
+          Elo Progression {year ? `(${year})` : 'Over Time'}
         </CardTitle>
         <Select value={range} onValueChange={(v) => setRange(v as RangeOption)}>
           <SelectTrigger className="w-[140px]">
