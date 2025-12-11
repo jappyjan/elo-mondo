@@ -1,9 +1,11 @@
-
+import { useState } from 'react';
 import { CalculatedPlayer } from '@/types/darts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Medal, Award, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const PROVISIONAL_THRESHOLD = 10;
 
@@ -13,9 +15,11 @@ interface LeaderboardTableProps {
 }
 
 export function LeaderboardTable({ players, showDecay = true }: LeaderboardTableProps) {
-  // Filter out provisional players (those with fewer matches than threshold)
+  const [showProvisional, setShowProvisional] = useState(false);
+  
   const qualifiedPlayers = players.filter(p => p.matchesPlayed >= PROVISIONAL_THRESHOLD);
-  const provisionalCount = players.length - qualifiedPlayers.length;
+  const provisionalPlayers = players.filter(p => p.matchesPlayed < PROVISIONAL_THRESHOLD);
+  const displayedPlayers = showProvisional ? players : qualifiedPlayers;
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -32,6 +36,18 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
 
   return (
     <div className="rounded-md border">
+      {provisionalPlayers.length > 0 && (
+        <div className="flex items-center justify-end gap-2 p-3 border-b">
+          <Switch
+            id="show-provisional"
+            checked={showProvisional}
+            onCheckedChange={setShowProvisional}
+          />
+          <Label htmlFor="show-provisional" className="text-sm text-muted-foreground cursor-pointer">
+            Show provisional ({provisionalPlayers.length})
+          </Label>
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -45,15 +61,20 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {qualifiedPlayers.map((player) => (
-            <TableRow key={player.playerId}>
+          {displayedPlayers.map((player) => (
+            <TableRow key={player.playerId} className={player.matchesPlayed < PROVISIONAL_THRESHOLD ? "opacity-60" : ""}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
                   {getRankIcon(player.rank)}
                   #{player.rank}
                 </div>
               </TableCell>
-              <TableCell className="font-semibold">{player.playerName}</TableCell>
+              <TableCell className="font-semibold">
+                {player.playerName}
+                {player.matchesPlayed < PROVISIONAL_THRESHOLD && (
+                  <Badge variant="outline" className="ml-2 text-xs">Provisional</Badge>
+                )}
+              </TableCell>
               <TableCell className="text-center">
                 <TooltipProvider>
                   <Tooltip>
@@ -99,11 +120,6 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           ))}
         </TableBody>
       </Table>
-      {provisionalCount > 0 && (
-        <p className="text-sm text-muted-foreground text-center py-2">
-          {provisionalCount} player{provisionalCount !== 1 ? 's' : ''} hidden (fewer than {PROVISIONAL_THRESHOLD} matches played)
-        </p>
-      )}
     </div>
   );
 }
