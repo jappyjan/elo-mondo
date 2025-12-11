@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const BASE_ELO = 1000;
-const K_FACTOR = 50;
+const K_FACTOR = 32;
 // New players (< this many games) use double K-factor to converge faster
 const PROVISIONAL_THRESHOLD = 10;
 const PROVISIONAL_K_FACTOR = K_FACTOR * 2; // 64
