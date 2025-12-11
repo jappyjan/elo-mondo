@@ -734,6 +734,7 @@ serve(async (req) => {
       losses: number;
       winRate: number;
       rank: number;
+      isProvisional: boolean;
     }> = [];
 
     for (const player of players) {
@@ -756,6 +757,7 @@ serve(async (req) => {
       // Use year-specific stats instead of all-time stats
       const yearStats = playerYearStats.get(player.id) || { wins: 0, losses: 0, matchesPlayed: 0 };
       const winRate = yearStats.matchesPlayed > 0 ? yearStats.wins / yearStats.matchesPlayed : 0;
+      const isProvisional = yearStats.matchesPlayed < PROVISIONAL_THRESHOLD;
 
       // Only include players who played in the selected year (or all if no year selected)
       if (!selectedYear || yearStats.matchesPlayed > 0) {
@@ -769,28 +771,30 @@ serve(async (req) => {
           matchesPlayed: yearStats.matchesPlayed,
           wins: yearStats.wins,
           losses: yearStats.losses,
-          winRate: Math.round(winRate * 1000) / 1000, // Round to 3 decimal places
+          winRate: Math.round(winRate * 1000) / 1000,
           rank: 0, // Will be assigned after sorting
+          isProvisional,
         });
       }
     }
 
-    // Sort by current Elo (descending), then by win rate (descending)
-    currentRatings.sort((a, b) => {
-      if (b.currentElo !== a.currentElo) {
-        return b.currentElo - a.currentElo;
-      }
+    // Separate qualified and provisional players
+    const qualifiedPlayers = currentRatings.filter(p => !p.isProvisional);
+    const provisionalPlayers = currentRatings.filter(p => p.isProvisional);
+
+    // Sort qualified players by current Elo (descending), then by win rate (descending)
+    qualifiedPlayers.sort((a, b) => {
+      if (b.currentElo !== a.currentElo) return b.currentElo - a.currentElo;
       return b.winRate - a.winRate;
     });
 
-    // Assign ranks - players with same Elo AND winRate share rank, next rank skips
-    for (let i = 0; i < currentRatings.length; i++) {
+    // Assign ranks only to qualified players
+    for (let i = 0; i < qualifiedPlayers.length; i++) {
       if (i === 0) {
-        currentRatings[i].rank = 1;
+        qualifiedPlayers[i].rank = 1;
       } else {
-        const prev = currentRatings[i - 1];
-        const curr = currentRatings[i];
-        // Same Elo and winRate = same rank, otherwise rank = position + 1
+        const prev = qualifiedPlayers[i - 1];
+        const curr = qualifiedPlayers[i];
         if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
           curr.rank = prev.rank;
         } else {
@@ -799,11 +803,35 @@ serve(async (req) => {
       }
     }
 
+    // Sort provisional players similarly but assign ranks after qualified
+    provisionalPlayers.sort((a, b) => {
+      if (b.currentElo !== a.currentElo) return b.currentElo - a.currentElo;
+      return b.winRate - a.winRate;
+    });
+
+    const startRankForProvisional = qualifiedPlayers.length + 1;
+    for (let i = 0; i < provisionalPlayers.length; i++) {
+      if (i === 0) {
+        provisionalPlayers[i].rank = startRankForProvisional;
+      } else {
+        const prev = provisionalPlayers[i - 1];
+        const curr = provisionalPlayers[i];
+        if (curr.currentElo === prev.currentElo && curr.winRate === prev.winRate) {
+          curr.rank = prev.rank;
+        } else {
+          curr.rank = startRankForProvisional + i;
+        }
+      }
+    }
+
+    // Combine back: qualified first, then provisional
+    const sortedRatings = [...qualifiedPlayers, ...provisionalPlayers];
+
     console.log("Elo calculation complete");
 
     return new Response(
       JSON.stringify({
-        players: currentRatings,
+        players: sortedRatings,
         matchHistory,
         calculatedAt: now.toISOString(),
         decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
