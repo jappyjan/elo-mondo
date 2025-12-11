@@ -13,7 +13,8 @@ const PROVISIONAL_THRESHOLD = 10;
 const PROVISIONAL_K_FACTOR = K_FACTOR * 2; // 64
 // Decay half-life in days - after this many days, you're 50% back to 1000
 // Choose ~45d half-life so ~90d of inactivity pulls you close to baseline
-const DECAY_HALF_LIFE_DAYS = 45;
+const DECAY_HALF_LIFE_DAYS = 30;
+const DECAY_START_DAY = 14;
 
 interface Player {
   id: string;
@@ -59,7 +60,7 @@ function calculateExpectedScore(playerRating: number, opponentRating: number): n
 
 function applyDecayFn(elo: number, lastMatchDate: Date, currentDate: Date): number {
   const daysSinceLastMatch = (currentDate.getTime() - lastMatchDate.getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSinceLastMatch <= 0) return elo;
+  if (daysSinceLastMatch <= DECAY_START_DAY) return elo;
 
   // Exponential decay towards BASE_ELO
   // decay factor = 0.5^(days/half_life)
