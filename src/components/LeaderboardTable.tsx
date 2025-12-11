@@ -5,12 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { Trophy, Medal, Award, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+const PROVISIONAL_THRESHOLD = 10;
+
 interface LeaderboardTableProps {
   players: CalculatedPlayer[];
   showDecay?: boolean;
 }
 
 export function LeaderboardTable({ players, showDecay = true }: LeaderboardTableProps) {
+  // Filter out provisional players (those with fewer matches than threshold)
+  const qualifiedPlayers = players.filter(p => p.matchesPlayed >= PROVISIONAL_THRESHOLD);
+  const provisionalCount = players.length - qualifiedPlayers.length;
+
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
@@ -39,7 +45,7 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {players.map((player) => (
+          {qualifiedPlayers.map((player) => (
             <TableRow key={player.playerId}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
@@ -93,6 +99,11 @@ export function LeaderboardTable({ players, showDecay = true }: LeaderboardTable
           ))}
         </TableBody>
       </Table>
+      {provisionalCount > 0 && (
+        <p className="text-sm text-muted-foreground text-center py-2">
+          {provisionalCount} player{provisionalCount !== 1 ? 's' : ''} hidden (fewer than {PROVISIONAL_THRESHOLD} matches played)
+        </p>
+      )}
     </div>
   );
 }
