@@ -7,11 +7,11 @@ import { toast } from '@/components/ui/use-toast';
 const SUPABASE_URL = "https://stzilnijaoxwqyuyryts.supabase.co";
 
 // Fetch players with calculated Elo (with decay) from edge function
-export function useCalculatedPlayers(applyDecay: boolean = true, year?: number | null) {
+export function useCalculatedPlayers(applyDecay: boolean = true, year?: number | null, includeProvisional: boolean = true) {
   return useQuery({
-    queryKey: ['calculated-players', applyDecay, year],
+    queryKey: ['calculated-players', applyDecay, year, includeProvisional],
     queryFn: async (): Promise<EloCalculationResponse> => {
-      const body: { applyDecay: boolean; year?: number } = { applyDecay };
+      const body: { applyDecay: boolean; year?: number; includeProvisional: boolean } = { applyDecay, includeProvisional };
       if (year) {
         body.year = year;
       }
