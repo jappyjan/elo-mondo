@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRecordMultiPlayerMatch } from '@/hooks/useRecordMultiPlayerMatch';
 import { useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GameResultsProps {
   playerStates: Record<string, PlayerGameState>;
@@ -17,6 +18,7 @@ export function GameResults({ playerStates, onNewGame, onReset }: GameResultsPro
   const navigate = useNavigate();
   const recordMatch = useRecordMultiPlayerMatch();
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const rankings = Object.values(playerStates)
     .filter((ps) => ps.finishedRank !== null)
@@ -36,36 +38,60 @@ export function GameResults({ playerStates, onNewGame, onReset }: GameResultsPro
   };
 
   const handleSaveToElo = async () => {
-    // Filter out temporary players
-    const eligiblePlayers = rankings.filter(
-      (ps) => !ps.playerId.startsWith('temp-')
-    );
-
-    if (eligiblePlayers.length < 2) {
+    if (rankings.length < 2) {
       toast({
         title: 'Cannot Save',
-        description: 'Need at least 2 registered players to save match to ELO rankings.',
+        description: 'Need at least 2 players to save match to ELO rankings.',
         variant: 'destructive',
       });
       return;
     }
 
+    setIsSaving(true);
+
     try {
-      await recordMatch.mutateAsync({
-        playerRankings: eligiblePlayers.map((ps) => ({
-          playerId: ps.playerId,
+      // First, create any temporary players in the database
+      const playerRankings: { playerId: string; rank: number }[] = [];
+
+      for (const ps of rankings) {
+        let playerId = ps.playerId;
+
+        // If this is a temporary player, create them in the database first
+        if (ps.playerId.startsWith('temp-')) {
+          const { data: newPlayer, error } = await supabase
+            .from('players')
+            .insert({ name: ps.playerName })
+            .select()
+            .single();
+
+          if (error) {
+            throw new Error(`Failed to create player ${ps.playerName}: ${error.message}`);
+          }
+
+          playerId = newPlayer.id;
+        }
+
+        playerRankings.push({
+          playerId,
           rank: ps.finishedRank!,
-        })),
-      });
+        });
+      }
+
+      // Now record the match with all players (including newly created ones)
+      await recordMatch.mutateAsync({ playerRankings });
       setIsSaved(true);
-    } catch (error) {
-      // Error handled by mutation
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save match',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const hasEligiblePlayers = rankings.filter(
-    (ps) => !ps.playerId.startsWith('temp-')
-  ).length >= 2;
+  const hasEnoughPlayers = rankings.length >= 2;
 
   return (
     <Card className="border-2 border-primary">
@@ -88,7 +114,7 @@ export function GameResults({ playerStates, onNewGame, onReset }: GameResultsPro
                 <div>
                   <div className="font-bold">{ps.playerName}</div>
                   {ps.playerId.startsWith('temp-') && (
-                    <div className="text-xs text-muted-foreground">Temporary Player</div>
+                    <div className="text-xs text-muted-foreground">New Player</div>
                   )}
                 </div>
               </div>
@@ -103,15 +129,15 @@ export function GameResults({ playerStates, onNewGame, onReset }: GameResultsPro
 
         {/* Actions */}
         <div className="space-y-2">
-          {hasEligiblePlayers && !isSaved && (
+          {hasEnoughPlayers && !isSaved && (
             <Button
               onClick={handleSaveToElo}
-              disabled={recordMatch.isPending}
+              disabled={isSaving || recordMatch.isPending}
               className="w-full"
               size="lg"
             >
               <Save className="h-4 w-4 mr-2" />
-              {recordMatch.isPending ? 'Saving...' : 'Save to ELO Rankings'}
+              {isSaving || recordMatch.isPending ? 'Saving...' : 'Save to ELO Rankings'}
             </Button>
           )}
 
@@ -121,9 +147,9 @@ export function GameResults({ playerStates, onNewGame, onReset }: GameResultsPro
             </div>
           )}
 
-          {!hasEligiblePlayers && (
+          {!hasEnoughPlayers && (
             <div className="text-center text-sm text-muted-foreground py-2">
-              No registered players to save ELO for
+              Need at least 2 players to save ELO
             </div>
           )}
 
