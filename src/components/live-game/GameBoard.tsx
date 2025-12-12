@@ -133,6 +133,7 @@ export function GameBoard({ onReset }: GameBoardProps) {
         playerOrder={gameState.playerOrder}
         currentPlayerId={currentPlayerId}
         finishedPlayerIds={gameState.finishedPlayerIds}
+        requireDoubleIn={gameState.startRule === 'double-in'}
       />
 
       {/* Current Player Display */}

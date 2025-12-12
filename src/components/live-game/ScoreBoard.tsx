@@ -7,6 +7,7 @@ interface ScoreBoardProps {
   playerOrder: string[];
   currentPlayerId: string;
   finishedPlayerIds: string[];
+  requireDoubleIn: boolean;
 }
 
 export function ScoreBoard({
@@ -14,6 +15,7 @@ export function ScoreBoard({
   playerOrder,
   currentPlayerId,
   finishedPlayerIds,
+  requireDoubleIn,
 }: ScoreBoardProps) {
   const getRankEmoji = (rank: number) => {
     switch (rank) {
@@ -65,7 +67,7 @@ export function ScoreBoard({
             )}>
               {playerState.currentScore}
             </div>
-            {!playerState.hasDoubledIn && (
+            {requireDoubleIn && !playerState.hasDoubledIn && !isFinished && (
               <div className="text-xs text-muted-foreground">Need Double</div>
             )}
           </div>
