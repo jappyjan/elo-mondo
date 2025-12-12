@@ -33,18 +33,22 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
 
   const handleNumberClick = (num: number) => {
     onDartThrow(createDart(num, multiplier, getLabel(num, multiplier)));
+    setMultiplier(1);
   };
 
   const handleOuterBull = () => {
     onDartThrow(createDart(25, 1, '25'));
+    setMultiplier(1);
   };
 
   const handleInnerBull = () => {
     onDartThrow(createDart(25, 2, 'BULL'));
+    setMultiplier(1);
   };
 
   const handleMiss = () => {
     onDartThrow(createDart(0, 1, 'MISS'));
+    setMultiplier(1);
   };
 
   // Dartboard order
