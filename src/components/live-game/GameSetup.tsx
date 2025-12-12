@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,24 @@ import { GamePlayer, GameSettings, GameType, StartRule, EndRule } from '@/types/
 import { Plus, Shuffle, GripVertical, X, Users, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const RULES_STORAGE_KEY = 'elomondo-game-rules';
+
+interface SavedRules {
+  gameType: GameType;
+  startRule: StartRule;
+  endRule: EndRule;
+}
+
+const loadSavedRules = (): SavedRules => {
+  try {
+    const stored = localStorage.getItem(RULES_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {}
+  return { gameType: '501', startRule: 'straight-in', endRule: 'double-out' };
+};
+
 interface GameSetupProps {
   onStartGame: (settings: GameSettings) => void;
 }
@@ -16,12 +34,19 @@ interface GameSetupProps {
 export function GameSetup({ onStartGame }: GameSetupProps) {
   const { data: existingPlayers = [] } = usePlayers();
   
-  const [gameType, setGameType] = useState<GameType>('501');
-  const [startRule, setStartRule] = useState<StartRule>('straight-in');
-  const [endRule, setEndRule] = useState<EndRule>('double-out');
+  const savedRules = loadSavedRules();
+  
+  const [gameType, setGameType] = useState<GameType>(savedRules.gameType);
+  const [startRule, setStartRule] = useState<StartRule>(savedRules.startRule);
+  const [endRule, setEndRule] = useState<EndRule>(savedRules.endRule);
   const [selectedPlayers, setSelectedPlayers] = useState<GamePlayer[]>([]);
   const [tempPlayerName, setTempPlayerName] = useState('');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Persist rules to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify({ gameType, startRule, endRule }));
+  }, [gameType, startRule, endRule]);
 
   const handleSelectPlayer = (playerId: string) => {
     const player = existingPlayers.find(p => p.id === playerId);
