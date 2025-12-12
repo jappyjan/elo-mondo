@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DartThrow } from '@/types/liveGame';
 import { cn } from '@/lib/utils';
@@ -8,9 +9,11 @@ interface DartInputProps {
   dartsThrown: number;
 }
 
+type Multiplier = 1 | 2 | 3;
+
 const createDart = (
   segment: number,
-  multiplier: 1 | 2 | 3,
+  multiplier: Multiplier,
   label: string
 ): DartThrow => ({
   segment,
@@ -20,16 +23,16 @@ const createDart = (
 });
 
 export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps) {
-  const handleSingle = (num: number) => {
-    onDartThrow(createDart(num, 1, `${num}`));
+  const [multiplier, setMultiplier] = useState<Multiplier>(1);
+
+  const getLabel = (num: number, mult: Multiplier): string => {
+    if (mult === 1) return `${num}`;
+    if (mult === 2) return `D${num}`;
+    return `T${num}`;
   };
 
-  const handleDouble = (num: number) => {
-    onDartThrow(createDart(num, 2, `D${num}`));
-  };
-
-  const handleTriple = (num: number) => {
-    onDartThrow(createDart(num, 3, `T${num}`));
+  const handleNumberClick = (num: number) => {
+    onDartThrow(createDart(num, multiplier, getLabel(num, multiplier)));
   };
 
   const handleOuterBull = () => {
@@ -44,15 +47,17 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
     onDartThrow(createDart(0, 1, 'MISS'));
   };
 
-  const numbers = Array.from({ length: 20 }, (_, i) => i + 1);
-  
-  // Arrange in dartboard-like order (20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5)
+  // Dartboard order
   const dartboardOrder = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
   const buttonBase = "h-12 sm:h-14 text-base sm:text-lg font-bold transition-all active:scale-95";
-  const singleStyle = "bg-secondary hover:bg-secondary/80 text-secondary-foreground";
-  const doubleStyle = "bg-primary hover:bg-primary/80 text-primary-foreground";
-  const tripleStyle = "bg-destructive hover:bg-destructive/80 text-destructive-foreground";
+  
+  const getNumberButtonStyle = () => {
+    if (multiplier === 1) return "bg-secondary hover:bg-secondary/80 text-secondary-foreground";
+    if (multiplier === 2) return "bg-primary hover:bg-primary/80 text-primary-foreground";
+    return "bg-destructive hover:bg-destructive/80 text-destructive-foreground";
+  };
+
   const bullStyle = "bg-accent hover:bg-accent/80 text-accent-foreground border-2 border-primary";
 
   return (
@@ -70,85 +75,78 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
         ))}
       </div>
 
-      {/* Miss button */}
-      <div className="flex justify-center">
+      {/* Multiplier Selection */}
+      <div className="grid grid-cols-3 gap-2">
         <Button
-          variant="outline"
-          onClick={handleMiss}
-          disabled={disabled}
-          className={cn(buttonBase, "w-full max-w-[200px]")}
+          variant={multiplier === 1 ? "default" : "outline"}
+          onClick={() => setMultiplier(1)}
+          className={cn(
+            "h-12 text-base font-bold",
+            multiplier === 1 && "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          )}
         >
-          MISS (0)
+          Single
+        </Button>
+        <Button
+          variant={multiplier === 2 ? "default" : "outline"}
+          onClick={() => setMultiplier(2)}
+          className={cn(
+            "h-12 text-base font-bold",
+            multiplier === 2 && "bg-primary text-primary-foreground hover:bg-primary/80"
+          )}
+        >
+          Double
+        </Button>
+        <Button
+          variant={multiplier === 3 ? "default" : "outline"}
+          onClick={() => setMultiplier(3)}
+          className={cn(
+            "h-12 text-base font-bold",
+            multiplier === 3 && "bg-destructive text-destructive-foreground hover:bg-destructive/80"
+          )}
+        >
+          Triple
         </Button>
       </div>
 
-      {/* Bulls */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Number Grid */}
+      <div className="grid grid-cols-5 gap-1.5">
+        {dartboardOrder.map((num) => (
+          <Button
+            key={num}
+            onClick={() => handleNumberClick(num)}
+            disabled={disabled}
+            className={cn(buttonBase, getNumberButtonStyle())}
+          >
+            {multiplier === 1 ? num : multiplier === 2 ? `D${num}` : `T${num}`}
+          </Button>
+        ))}
+      </div>
+
+      {/* Bulls and Miss */}
+      <div className="grid grid-cols-3 gap-2">
         <Button
           onClick={handleOuterBull}
           disabled={disabled}
           className={cn(buttonBase, bullStyle)}
         >
-          OUTER 25
+          25
         </Button>
         <Button
           onClick={handleInnerBull}
           disabled={disabled}
           className={cn(buttonBase, bullStyle, "border-destructive")}
         >
-          BULL 50
+          BULL
         </Button>
-      </div>
-
-      {/* Singles */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground text-center">Singles</h4>
-        <div className="grid grid-cols-5 gap-1.5">
-          {dartboardOrder.map((num) => (
-            <Button
-              key={`s${num}`}
-              onClick={() => handleSingle(num)}
-              disabled={disabled}
-              className={cn(buttonBase, singleStyle, "h-10 sm:h-12 text-sm sm:text-base")}
-            >
-              {num}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Doubles */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground text-center">Doubles</h4>
-        <div className="grid grid-cols-5 gap-1.5">
-          {dartboardOrder.map((num) => (
-            <Button
-              key={`d${num}`}
-              onClick={() => handleDouble(num)}
-              disabled={disabled}
-              className={cn(buttonBase, doubleStyle, "h-10 sm:h-12 text-sm sm:text-base")}
-            >
-              D{num}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Triples */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground text-center">Triples</h4>
-        <div className="grid grid-cols-5 gap-1.5">
-          {dartboardOrder.map((num) => (
-            <Button
-              key={`t${num}`}
-              onClick={() => handleTriple(num)}
-              disabled={disabled}
-              className={cn(buttonBase, tripleStyle, "h-10 sm:h-12 text-sm sm:text-base")}
-            >
-              T{num}
-            </Button>
-          ))}
-        </div>
+        <Button
+          variant="outline"
+          onClick={handleMiss}
+          disabled={disabled}
+          className={cn(buttonBase)}
+        >
+          MISS
+        </Button>
       </div>
     </div>
   );
