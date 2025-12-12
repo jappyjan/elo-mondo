@@ -54,11 +54,15 @@ export function TurnHistory({ playerStates, playerOrder }: TurnHistoryProps) {
               turn.isBust && "bg-destructive/10 text-destructive"
             )}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <span className="font-medium w-20 truncate">{turn.playerName}</span>
-              <span className="text-muted-foreground">
-                {turn.darts.join(' • ')}
-              </span>
+              <div className="flex">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="w-10 text-center text-muted-foreground tabular-nums">
+                    {turn.darts[i] || '-'}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {turn.isBust ? (
