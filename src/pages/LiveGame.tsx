@@ -1,10 +1,10 @@
-import { useLiveGame } from '@/hooks/useLiveGame';
+import { LiveGameProvider, useLiveGameContext } from '@/contexts/LiveGameContext';
 import { GameSetup } from '@/components/live-game/GameSetup';
 import { GameBoard } from '@/components/live-game/GameBoard';
 import { GameSettings } from '@/types/liveGame';
 
-export default function LiveGame() {
-  const { gameState, startGame, resetGame } = useLiveGame();
+function LiveGameContent() {
+  const { gameState, startGame, resetGame } = useLiveGameContext();
 
   const handleStartGame = (settings: GameSettings) => {
     startGame(settings);
@@ -29,5 +29,13 @@ export default function LiveGame() {
         <GameSetup onStartGame={handleStartGame} />
       )}
     </main>
+  );
+}
+
+export default function LiveGame() {
+  return (
+    <LiveGameProvider>
+      <LiveGameContent />
+    </LiveGameProvider>
   );
 }
