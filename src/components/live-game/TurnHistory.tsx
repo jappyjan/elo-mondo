@@ -24,7 +24,7 @@ export function TurnHistory({ playerStates, playerOrder }: TurnHistoryProps) {
       allTurns.push({
         playerName: playerState.playerName,
         turnIndex: index,
-        darts: turn.darts.map((d) => d.label === 'Miss' ? 'X' : d.label),
+        darts: turn.darts.map((d) => d.label.toUpperCase() === 'MISS' ? 'X' : d.label),
         scoreAtStart: turn.scoreAtStart,
         scoreAtEnd: turn.scoreAtEnd,
         isBust: turn.isBust,
