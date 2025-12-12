@@ -176,16 +176,18 @@ export function GameBoard({ onReset }: GameBoardProps) {
           disabled={gameState.currentTurnDarts.length === 0}
           className="flex-1"
         >
-          <Undo2 className="h-4 w-4 mr-1" />
-          Undo Dart
+          <Undo2 className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Undo Dart</span>
+          <span className="sm:hidden">Dart</span>
         </Button>
         <Button
           variant="outline"
           onClick={undoLastTurn}
           className="flex-1"
         >
-          <Undo2 className="h-4 w-4 mr-1" />
-          Undo Turn
+          <Undo2 className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Undo Turn</span>
+          <span className="sm:hidden">Turn</span>
         </Button>
         <Button
           variant="outline"
@@ -193,8 +195,9 @@ export function GameBoard({ onReset }: GameBoardProps) {
           disabled={gameState.currentTurnDarts.length === 0}
           className="flex-1"
         >
-          <FastForward className="h-4 w-4 mr-1" />
-          End Turn
+          <FastForward className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">End Turn</span>
+          <span className="sm:hidden">End</span>
         </Button>
       </div>
 
