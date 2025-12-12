@@ -51,8 +51,8 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
     setMultiplier(1);
   };
 
-  // Dartboard order
-  const dartboardOrder = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+  // Sequential number order
+  const numberOrder = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
   const buttonBase = "h-12 sm:h-14 text-base sm:text-lg font-bold transition-all active:scale-95";
   
@@ -115,7 +115,7 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
 
       {/* Number Grid */}
       <div className="grid grid-cols-5 gap-1.5">
-        {dartboardOrder.map((num) => (
+        {numberOrder.map((num) => (
           <Button
             key={num}
             onClick={() => handleNumberClick(num)}
