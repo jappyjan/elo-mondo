@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLiveGame } from '@/hooks/useLiveGame';
+import { useLiveGameContext } from '@/contexts/LiveGameContext';
 import { DartInput } from './DartInput';
 import { CurrentTurn } from './CurrentTurn';
 import { ScoreBoard } from './ScoreBoard';
@@ -42,7 +42,7 @@ export function GameBoard({ onReset }: GameBoardProps) {
     endTurnEarly,
     getCurrentTurnScore,
     getPotentialScore,
-  } = useLiveGame();
+  } = useLiveGameContext();
 
   const [showBust, setShowBust] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
