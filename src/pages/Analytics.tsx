@@ -11,26 +11,26 @@ import TrendAnalysis from '@/components/analytics/TrendAnalysis';
 const Analytics = () => {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   
-  // Fetch initial data to get available years
-  const { data: initialData, isLoading: initialLoading } = useCalculatedPlayers(false, null, true);
-  
-  // Set default year when data loads
-  useEffect(() => {
-    if (initialData?.availableYears?.length && selectedYear === null) {
-      setSelectedYear(initialData.availableYears[0]);
-    }
-  }, [initialData, selectedYear]);
-
-  // Fetch data for selected year (only when year is set)
-  const { data: eloData, isLoading, error } = useCalculatedPlayers(
+  // Fetch data - will refetch when selectedYear changes
+  const { data: eloData, isLoading, isFetching, error } = useCalculatedPlayers(
     false,
     selectedYear,
     true
   );
 
-  const availableYears = initialData?.availableYears || [];
+  // Set default year when data loads for the first time
+  useEffect(() => {
+    if (eloData?.availableYears?.length && selectedYear === null) {
+      setSelectedYear(eloData.availableYears[0]);
+    }
+  }, [eloData?.availableYears, selectedYear]);
 
-  if (initialLoading || isLoading) {
+  const availableYears = eloData?.availableYears || [];
+  const players = eloData?.players || [];
+  const matchHistory = eloData?.matchHistory || [];
+
+  // Show loading only on initial load (no data yet)
+  if (isLoading && players.length === 0 && matchHistory.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -38,7 +38,7 @@ const Analytics = () => {
     );
   }
 
-  if (error) {
+  if (error && !eloData) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center text-destructive">
@@ -47,9 +47,6 @@ const Analytics = () => {
       </div>
     );
   }
-
-  const players = eloData?.players || [];
-  const matchHistory = eloData?.matchHistory || [];
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -61,21 +58,24 @@ const Analytics = () => {
         </div>
         
         {/* Year Filter */}
-        <Select
-          value={selectedYear?.toString() || ''}
-          onValueChange={(value) => setSelectedYear(parseInt(value))}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Select year" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableYears.map((year) => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <Select
+            value={selectedYear?.toString() || ''}
+            onValueChange={(value) => setSelectedYear(parseInt(value))}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Select year" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Tabs */}

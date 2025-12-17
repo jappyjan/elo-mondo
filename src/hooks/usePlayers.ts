@@ -32,6 +32,7 @@ export function useCalculatedPlayers(applyDecay: boolean = true, year?: number |
       return response.json();
     },
     staleTime: 10000, // Cache for 10 seconds
+    placeholderData: (previousData) => previousData, // Keep showing previous data while fetching
   });
 }
 
