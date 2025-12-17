@@ -360,6 +360,42 @@ const IndividualPerformance = ({ players, matchHistory }: IndividualPerformanceP
                   </div>
                 )}
               </div>
+              
+              {/* Metric Explanations */}
+              {radarData.length > 0 && (
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="font-medium">Elo Rating</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      Position relative to all players. 100 = highest rated, 0 = lowest rated.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="font-medium">Win Rate</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      Percentage of games won. Higher is better.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="font-medium">Experience</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      Games played compared to the most active player. 100 = most games played.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="font-medium">Consistency</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      How stable are the results. High = predictable outcomes, low = volatile swings.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="font-medium">Form</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      Recent performance (last 5 games). Above 50 = improving, below 50 = declining.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
