@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,19 +14,19 @@ const Analytics = () => {
   // Fetch initial data to get available years
   const { data: initialData, isLoading: initialLoading } = useCalculatedPlayers(false, null, true);
   
-  // Fetch data for selected year
+  // Set default year when data loads
+  useEffect(() => {
+    if (initialData?.availableYears?.length && selectedYear === null) {
+      setSelectedYear(initialData.availableYears[0]);
+    }
+  }, [initialData, selectedYear]);
+
+  // Fetch data for selected year (only when year is set)
   const { data: eloData, isLoading, error } = useCalculatedPlayers(
     false,
     selectedYear,
     true
   );
-
-  // Set default year when data loads
-  useMemo(() => {
-    if (initialData?.availableYears?.length && selectedYear === null) {
-      setSelectedYear(initialData.availableYears[0]);
-    }
-  }, [initialData, selectedYear]);
 
   const availableYears = initialData?.availableYears || [];
 

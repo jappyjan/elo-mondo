@@ -162,6 +162,14 @@ const HeadToHead = ({ players, matchHistory }: HeadToHeadProps) => {
     return data;
   }, [selectedPlayer1, matchHistory, players]);
 
+  // Count matches for selected player
+  const playerMatchCount = useMemo(() => {
+    if (!selectedPlayer1) return 0;
+    return matchHistory.filter(m => 
+      m.results.some(r => r.playerId === selectedPlayer1)
+    ).length;
+  }, [selectedPlayer1, matchHistory]);
+
   // Get unique players sorted by name
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => a.playerName.localeCompare(b.playerName));
@@ -427,8 +435,11 @@ const HeadToHead = ({ players, matchHistory }: HeadToHeadProps) => {
                   </ScatterChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  Select a player above to see their performance data
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                  <p>No match data found for this player</p>
+                  <p className="text-xs">
+                    Found {playerMatchCount} matches in history
+                  </p>
                 </div>
               )}
             </div>
