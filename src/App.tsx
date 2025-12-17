@@ -9,6 +9,7 @@ import Navigation from "@/components/Navigation";
 import Index from "./pages/Index";
 import Matches from "./pages/Matches";
 import LiveGame from "./pages/LiveGame";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/live" element={<LiveGame />} />
+              <Route path="/analytics" element={<Analytics />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
