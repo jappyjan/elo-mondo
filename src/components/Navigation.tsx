@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from 'react-router-dom';
-import { Target, Trophy, Zap, Crosshair } from 'lucide-react';
+import { Target, Trophy, Zap, Crosshair, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Navigation = () => {
@@ -10,6 +10,7 @@ const Navigation = () => {
     { path: '/', label: 'Dashboard', icon: Trophy },
     { path: '/matches', label: 'Matches', icon: Zap },
     { path: '/live', label: 'Live Game', icon: Crosshair },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   return (
