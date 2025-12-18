@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,10 +10,12 @@ import HeadToHead from '@/components/analytics/HeadToHead';
 import TrendAnalysis from '@/components/analytics/TrendAnalysis';
 
 const Analytics = () => {
+  const { groupId } = useParams<{ groupId: string }>();
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   
   // Fetch data - will refetch when selectedYear changes
   const { data: eloData, isLoading, isFetching, error } = useCalculatedPlayers(
+    groupId,
     false,
     selectedYear,
     true

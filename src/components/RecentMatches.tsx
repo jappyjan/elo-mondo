@@ -7,8 +7,12 @@ import { History, Trophy, Medal, Award, ChevronLeft, ChevronRight } from 'lucide
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
-export function RecentMatches() {
-  const { data: matches = [], isLoading } = useMatches();
+interface RecentMatchesProps {
+  groupId?: string;
+}
+
+export function RecentMatches({ groupId }: RecentMatchesProps) {
+  const { data: matches = [], isLoading } = useMatches(groupId);
   const [currentPage, setCurrentPage] = useState(1);
   const matchesPerPage = 5;
 

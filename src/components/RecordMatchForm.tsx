@@ -5,15 +5,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePlayers } from '@/hooks/usePlayers';
-import { useRecordMatch } from '@/hooks/useMatches';
+import { useRecordMatch } from '@/hooks/useRecordMatch';
 import { Target } from 'lucide-react';
 
-export function RecordMatchForm() {
+interface RecordMatchFormProps {
+  groupId?: string;
+}
+
+export function RecordMatchForm({ groupId }: RecordMatchFormProps) {
   const [winnerId, setWinnerId] = useState('');
   const [loserId, setLoserId] = useState('');
   
   const { data: players = [] } = usePlayers();
-  const recordMatchMutation = useRecordMatch();
+  const recordMatchMutation = useRecordMatch(groupId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

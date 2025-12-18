@@ -7,17 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { usePlayers } from '@/hooks/usePlayers';
-import { useRecordMultiPlayerMatch } from '@/hooks/useMatches';
+import { useRecordMultiPlayerMatch } from '@/hooks/useRecordMultiPlayerMatch';
 import { Users, X, Trophy, Medal, Award } from 'lucide-react';
 import { PlayerRanking } from '@/types/darts';
 
-export function RecordMultiPlayerMatchForm() {
+interface RecordMultiPlayerMatchFormProps {
+  groupId?: string;
+}
+
+export function RecordMultiPlayerMatchForm({ groupId }: RecordMultiPlayerMatchFormProps) {
   const [playerRankings, setPlayerRankings] = useState<PlayerRanking[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [selectedRank, setSelectedRank] = useState('');
   
   const { data: players = [] } = usePlayers();
-  const recordMatchMutation = useRecordMultiPlayerMatch();
+  const recordMatchMutation = useRecordMultiPlayerMatch(groupId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

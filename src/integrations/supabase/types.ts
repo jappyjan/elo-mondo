@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      group_invites: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          group_id: string
+          id: string
+          invited_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          group_id: string
+          id?: string
+          invited_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          group_id?: string
+          id?: string
+          invited_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_invites_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          player_id: string
+          role: Database["public"]["Enums"]["group_role"]
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          player_id: string
+          role?: Database["public"]["Enums"]["group_role"]
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          player_id?: string
+          role?: Database["public"]["Enums"]["group_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          invite_code: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invite_code?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invite_code?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       match_participants: {
         Row: {
           created_at: string
@@ -59,6 +157,7 @@ export type Database = {
       matches: {
         Row: {
           created_at: string
+          group_id: string | null
           id: string
           loser_id: string
           match_type: string
@@ -67,6 +166,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          group_id?: string | null
           id?: string
           loser_id: string
           match_type?: string
@@ -75,6 +175,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          group_id?: string | null
           id?: string
           loser_id?: string
           match_type?: string
@@ -82,6 +183,13 @@ export type Database = {
           winner_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "matches_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "matches_loser_id_fkey"
             columns: ["loser_id"]
@@ -104,18 +212,21 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -124,10 +235,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_group_invite: { Args: { _invite_id: string }; Returns: string }
+      get_player_id_for_user: { Args: { _user_id: string }; Returns: string }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      join_group_by_code: { Args: { _invite_code: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      group_role: "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -254,6 +375,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      group_role: ["admin", "member"],
+    },
   },
 } as const

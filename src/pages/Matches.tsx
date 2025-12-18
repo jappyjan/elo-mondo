@@ -1,12 +1,14 @@
 
+import { useParams } from 'react-router-dom';
 import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { RecordMatchForm } from '@/components/RecordMatchForm';
 import { RecordMultiPlayerMatchForm } from '@/components/RecordMultiPlayerMatchForm';
 import { RecentMatches } from '@/components/RecentMatches';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Target } from 'lucide-react';
 
 const Matches = () => {
+  const { groupId } = useParams<{ groupId: string }>();
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="text-center mb-8">
@@ -17,9 +19,6 @@ const Matches = () => {
       </div>
 
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* Add Player Form */}
-        <AddPlayerForm />
-
         {/* Match Recording Forms */}
         <Tabs defaultValue="multiplayer" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -27,15 +26,15 @@ const Matches = () => {
             <TabsTrigger value="multiplayer">Multi-Player</TabsTrigger>
           </TabsList>
           <TabsContent value="1v1">
-            <RecordMatchForm />
+            <RecordMatchForm groupId={groupId} />
           </TabsContent>
           <TabsContent value="multiplayer">
-            <RecordMultiPlayerMatchForm />
+            <RecordMultiPlayerMatchForm groupId={groupId} />
           </TabsContent>
         </Tabs>
 
         {/* Recent Matches */}
-        <RecentMatches />
+        <RecentMatches groupId={groupId} />
       </div>
     </div>
   );

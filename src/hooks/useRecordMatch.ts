@@ -3,11 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-export function useRecordMatch() {
+export function useRecordMatch(groupId?: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ winnerId, loserId }: { winnerId: string; loserId: string }) => {
+      if (!groupId) throw new Error('Group ID is required');
+      
       // Get player names for the success message
       const { data: players, error: playersError } = await supabase
         .from('players')
@@ -21,14 +23,15 @@ export function useRecordMatch() {
       
       if (!winner || !loser) throw new Error('Players not found');
       
-      // Create match record - Elo is calculated on-the-fly by edge function
+      // Create match record with group_id
       const { error: matchError } = await supabase
         .from('matches')
         .insert({
           winner_id: winnerId,
           loser_id: loserId,
           match_type: '1v1',
-          total_players: 2
+          total_players: 2,
+          group_id: groupId
         });
       
       if (matchError) throw matchError;

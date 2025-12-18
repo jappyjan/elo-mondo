@@ -598,6 +598,7 @@ serve(async (req) => {
     let applyDecayInMatches: boolean | undefined;
     let selectedYear: number = defaultYear;
     let includeProvisional = true;
+    let groupId: string | undefined;
     try {
       const body = await req.json();
       if (typeof body.applyDecay === "boolean") {
@@ -612,6 +613,9 @@ serve(async (req) => {
       if (typeof body.includeProvisional === "boolean") {
         includeProvisional = body.includeProvisional;
       }
+      if (typeof body.groupId === "string") {
+        groupId = body.groupId;
+      }
     } catch {
       // No body or invalid JSON, use defaults
     }
@@ -619,15 +623,49 @@ serve(async (req) => {
     const applyDecayForMatches = applyDecayInMatches ?? false;
 
     console.log(
-      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear}, include provisional: ${includeProvisional})...`,
+      `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear}, include provisional: ${includeProvisional}, groupId: ${groupId || 'all'})...`,
     );
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all players
-    const { data: players, error: playersError } = await supabase.from("players").select("*");
+    // Fetch players - if groupId specified, only fetch players in that group
+    let playersQuery = supabase.from("players").select("*");
+    
+    if (groupId) {
+      // Get player IDs for members of this group
+      const { data: groupMembers, error: membersError } = await supabase
+        .from("group_members")
+        .select("player_id")
+        .eq("group_id", groupId);
+      
+      if (membersError) {
+        console.error("Error fetching group members:", membersError);
+        throw membersError;
+      }
+      
+      const playerIds = groupMembers.map((m: any) => m.player_id);
+      if (playerIds.length > 0) {
+        playersQuery = playersQuery.in("id", playerIds);
+      } else {
+        // No members in group - return empty response
+        return new Response(
+          JSON.stringify({
+            players: [],
+            matchHistory: [],
+            calculatedAt: requestReceivedAt.toISOString(),
+            decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
+            decayEnabled: applyDecayForOutput,
+            availableYears: [],
+            selectedYear: null,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+    
+    const { data: players, error: playersError } = await playersQuery;
 
     if (playersError) {
       console.error("Error fetching players:", playersError);
@@ -636,16 +674,20 @@ serve(async (req) => {
 
     console.log(`Found ${players.length} players`);
 
-    // Fetch all matches with participants, ordered by date
-    const { data: allMatches, error: matchesError } = await supabase
+    // Fetch matches with participants - filter by groupId if specified
+    let matchesQuery = supabase
       .from("matches")
-      .select(
-        `
+      .select(`
         *,
         participants:match_participants(*)
-      `,
-      )
+      `)
       .order("created_at", { ascending: true });
+    
+    if (groupId) {
+      matchesQuery = matchesQuery.eq("group_id", groupId);
+    }
+    
+    const { data: allMatches, error: matchesError } = await matchesQuery;
 
     if (matchesError) {
       console.error("Error fetching matches:", matchesError);

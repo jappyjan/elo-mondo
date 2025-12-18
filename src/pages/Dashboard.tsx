@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { EloProgressionChart } from '@/components/EloProgressionChart';
@@ -10,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Target, Users, Trophy, Clock, Calendar } from 'lucide-react';
 
 const Dashboard = () => {
+  const { groupId } = useParams<{ groupId: string }>();
   const [decayEnabled, setDecayEnabled] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [showProvisional, setShowProvisional] = useState(false);
   
   // First fetch without year to get available years
-  const { data: initialData } = useCalculatedPlayers(decayEnabled, null, true);
+  const { data: initialData } = useCalculatedPlayers(groupId, decayEnabled, null, true);
   
   // Set current year as default when data loads
   useEffect(() => {
@@ -29,10 +31,10 @@ const Dashboard = () => {
   }, [initialData?.availableYears, selectedYear]);
   
   // Fetch all players (including provisional) to get the count
-  const { data: allPlayersData } = useCalculatedPlayers(decayEnabled, selectedYear, true);
+  const { data: allPlayersData } = useCalculatedPlayers(groupId, decayEnabled, selectedYear, true);
   
   // Fetch with selected year and provisional filter
-  const { data: eloData, isLoading, error } = useCalculatedPlayers(decayEnabled, selectedYear, showProvisional);
+  const { data: eloData, isLoading, error } = useCalculatedPlayers(groupId, decayEnabled, selectedYear, showProvisional);
 
   const availableYears = initialData?.availableYears || [];
   
