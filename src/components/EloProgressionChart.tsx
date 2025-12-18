@@ -26,7 +26,7 @@ interface EloProgressionChartProps {
 }
 
 export function EloProgressionChart({ matchHistory, players, year }: EloProgressionChartProps) {
-  const [range, setRange] = useState<RangeOption>('all');
+  const [range, setRange] = useState<RangeOption>('last15');
 
   const filteredMatchHistory = useMemo(() => {
     if (!matchHistory.length) return [];
