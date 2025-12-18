@@ -1,11 +1,23 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Target, Trophy, Users, Zap, ArrowRight } from 'lucide-react';
 
 export default function Landing() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/groups', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
