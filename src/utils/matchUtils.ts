@@ -12,34 +12,9 @@ export async function getPlayersById(playerIds: string[]): Promise<Player[]> {
   return players as Player[];
 }
 
-export async function updatePlayerStats(
-  playerId: string, 
-  updates: {
-    elo_rating: number;
-    matches_played: number;
-    wins?: number;
-    losses?: number;
-  }
-) {
-  const { error } = await supabase
-    .from('players')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', playerId);
-  
-  if (error) throw error;
-}
-
 export async function createMatch(matchData: {
   winner_id: string;
   loser_id: string;
-  winner_elo_before: number;
-  loser_elo_before: number;
-  winner_elo_after: number;
-  loser_elo_after: number;
-  elo_change: number;
   match_type: string;
   total_players: number;
 }) {
@@ -57,9 +32,6 @@ export async function createMatchParticipants(participants: Array<{
   match_id: string;
   player_id: string;
   is_winner: boolean;
-  elo_before: number;
-  elo_after: number;
-  elo_change: number;
   rank: number;
 }>) {
   const { error } = await supabase

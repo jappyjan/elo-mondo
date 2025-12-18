@@ -9,11 +9,11 @@ export function useRecordMultiPlayerMatch() {
   
   return useMutation({
     mutationFn: async ({ playerRankings }: MultiPlayerMatchRequest) => {
-      // Get current player data
+      // Get player names for the success message
       const playerIds = playerRankings.map(pr => pr.playerId);
       const { data: players, error: playersError } = await supabase
         .from('players')
-        .select('*')
+        .select('id, name')
         .in('id', playerIds);
       
       if (playersError) throw playersError;
@@ -29,17 +29,12 @@ export function useRecordMultiPlayerMatch() {
       
       if (!winner || !loser) throw new Error('Invalid rankings provided');
       
-      // Create the match record (placeholder Elo values - calculated on-the-fly)
+      // Create the match record - Elo is calculated on-the-fly by edge function
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
           winner_id: winner.playerId,
           loser_id: loser.playerId,
-          winner_elo_before: 0,
-          loser_elo_before: 0,
-          winner_elo_after: 0,
-          loser_elo_after: 0,
-          elo_change: 0,
           match_type: 'multiplayer',
           total_players: playerRankings.length
         })
@@ -53,9 +48,6 @@ export function useRecordMultiPlayerMatch() {
         match_id: matchData.id,
         player_id: pr.playerId,
         is_winner: pr.rank === 1,
-        elo_before: 0, // Placeholder
-        elo_after: 0,
-        elo_change: 0,
         rank: pr.rank
       }));
       
@@ -64,22 +56,6 @@ export function useRecordMultiPlayerMatch() {
         .insert(participantInserts);
       
       if (participantsError) throw participantsError;
-      
-      // Update all players' stats (only win/loss counts)
-      for (const ranking of playerRankings) {
-        const player = players.find(p => p.id === ranking.playerId)!;
-        const { error: updateError } = await supabase
-          .from('players')
-          .update({
-            matches_played: player.matches_played + 1,
-            wins: ranking.rank === 1 ? player.wins + 1 : player.wins,
-            losses: ranking.rank !== 1 ? player.losses + 1 : player.losses,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', ranking.playerId);
-        
-        if (updateError) throw updateError;
-      }
       
       return { 
         players: players.map(p => {

@@ -3,7 +3,7 @@ import { useMatches } from '@/hooks/useMatches';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { History, TrendingUp, TrendingDown, Trophy, Medal, Award, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, Trophy, Medal, Award, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
@@ -75,17 +75,11 @@ export function RecentMatches() {
                       <div className="space-y-1">
                         {match.participants
                           .sort((a, b) => a.rank - b.rank)
-                          .map((participant, index) => (
+                          .map((participant) => (
                           <div key={participant.id} className="flex items-center gap-2 text-xs">
                             {getRankIcon(participant.rank)}
                             <span className={participant.is_winner ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
                               {participant.player.name}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {participant.elo_after} 
-                              <span className={participant.elo_change >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                ({participant.elo_change >= 0 ? '+' : ''}{participant.elo_change})
-                              </span>
                             </span>
                           </div>
                         ))}
@@ -113,30 +107,6 @@ export function RecentMatches() {
                   </div>
                 </div>
               </div>
-              
-              {match.match_type !== 'multiplayer' && (
-                <div className="flex items-center gap-2">
-                  <div className="text-xs text-center">
-                    <div className="flex items-center gap-1 text-green-600">
-                      <TrendingUp className="h-3 w-3" />
-                      <span>{match.winner_elo_after}</span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      (+{match.elo_change})
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-center">
-                    <div className="flex items-center gap-1 text-red-600">
-                      <TrendingDown className="h-3 w-3" />
-                      <span>{match.loser_elo_after}</span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      (-{match.elo_change})
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
           
