@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { Target, Trophy, Zap, Crosshair, BarChart3, Settings, LogOut, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,7 @@ import {
 
 export default function GroupNavigation() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { groupId } = useParams<{ groupId: string }>();
   const { user, signOut } = useAuth();
 
@@ -113,7 +114,10 @@ export default function GroupNavigation() {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                  <DropdownMenuItem onClick={async () => {
+                    await signOut();
+                    navigate('/');
+                  }} className="text-destructive">
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
                   </DropdownMenuItem>
