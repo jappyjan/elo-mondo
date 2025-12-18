@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      group_invite_codes: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          invite_code: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          invite_code?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          invite_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_invite_codes_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_invites: {
         Row: {
           created_at: string
@@ -93,21 +122,18 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          invite_code: string | null
           name: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           id?: string
-          invite_code?: string | null
           name: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
           id?: string
-          invite_code?: string | null
           name?: string
         }
         Relationships: []
