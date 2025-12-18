@@ -125,7 +125,7 @@ export function DartInput({ onDartThrow, disabled, dartsThrown, onUndo, canUndo 
             disabled={disabled}
             className={cn(buttonBase, getNumberButtonStyle())}
           >
-            {multiplier === 1 ? num : multiplier === 2 ? `D${num}` : `T${num}`}
+            {num}
           </Button>
         ))}
       </div>
