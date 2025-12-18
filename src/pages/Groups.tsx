@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Target, Plus, Users, ArrowRight, Loader2 } from 'lucide-react';
+import { Target, Plus, Users, ArrowRight, Loader2, LogOut } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 interface GroupWithMembership {
@@ -21,7 +21,7 @@ interface GroupWithMembership {
 
 export default function Groups() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
@@ -124,6 +124,11 @@ export default function Groups() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
+      <div className="flex justify-end mb-4">
+        <Button variant="ghost" size="sm" onClick={signOut}>
+          <LogOut className="h-4 w-4 mr-2" /> Sign Out
+        </Button>
+      </div>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">My Groups</h1>
