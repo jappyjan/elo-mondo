@@ -60,7 +60,12 @@ export function useLiveGame() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Migrate old game states that don't have globalThrowHistory
+        if (parsed && !parsed.globalThrowHistory) {
+          parsed.globalThrowHistory = [];
+        }
+        return parsed;
       } catch {
         return null;
       }
