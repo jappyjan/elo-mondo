@@ -1,22 +1,28 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Target, Plus, Users, ArrowRight, Loader2, LogOut } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Target, Plus, Users, ArrowRight, Loader2, LogOut } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface GroupWithMembership {
   id: string;
   name: string;
-  invite_code: string;
   created_at: string;
-  role: 'admin' | 'member';
+  role: "admin" | "member";
 }
 
 export default function Groups() {
@@ -25,43 +31,40 @@ export default function Groups() {
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [newGroupName, setNewGroupName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
 
   // Fetch user's groups
   const { data: groups = [], isLoading } = useQuery({
-    queryKey: ['user-groups', user?.id],
+    queryKey: ["user-groups", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       // Get player for current user
-      const { data: player } = await supabase
-        .from('players')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
+      const { data: player } = await supabase.from("players").select("id").eq("user_id", user.id).single();
+
       if (!player) return [];
 
       // Get memberships with group info
       const { data: memberships, error } = await supabase
-        .from('group_members')
-        .select(`
+        .from("group_members")
+        .select(
+          `
           role,
           groups (
             id,
             name,
-            invite_code,
             created_at
           )
-        `)
-        .eq('player_id', player.id);
+        `,
+        )
+        .eq("player_id", player.id);
 
       if (error) throw error;
 
       return (memberships || []).map((m: any) => ({
         ...m.groups,
-        role: m.role
+        role: m.role,
       })) as GroupWithMembership[];
     },
     enabled: !!user,
@@ -70,43 +73,39 @@ export default function Groups() {
   // Create group mutation
   const createGroup = useMutation({
     mutationFn: async (name: string) => {
-      const { data, error } = await supabase
-        .from('groups')
-        .insert({ name, created_by: user?.id })
-        .select()
-        .single();
+      const { data, error } = await supabase.from("groups").insert({ name, created_by: user?.id }).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
-      toast({ title: 'Group Created!', description: `"${data.name}" is ready to go` });
+      queryClient.invalidateQueries({ queryKey: ["user-groups"] });
+      toast({ title: "Group Created!", description: `"${data.name}" is ready to go` });
       setCreateDialogOpen(false);
-      setNewGroupName('');
+      setNewGroupName("");
       navigate(`/${data.id}`);
     },
     onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   // Join group mutation
   const joinGroup = useMutation({
     mutationFn: async (code: string) => {
-      const { data, error } = await supabase.rpc('join_group_by_code', { _invite_code: code });
+      const { data, error } = await supabase.rpc("join_group_by_code", { _invite_code: code });
       if (error) throw error;
       return data;
     },
     onSuccess: (groupId) => {
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
-      toast({ title: 'Joined Group!', description: 'Welcome to the group' });
+      queryClient.invalidateQueries({ queryKey: ["user-groups"] });
+      toast({ title: "Joined Group!", description: "Welcome to the group" });
       setJoinDialogOpen(false);
-      setInviteCode('');
+      setInviteCode("");
       navigate(`/${groupId}`);
     },
     onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   if (!user) {
@@ -144,7 +143,13 @@ export default function Groups() {
                 <DialogTitle>Join a Group</DialogTitle>
                 <DialogDescription>Enter the invite code to join an existing group</DialogDescription>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); joinGroup.mutate(inviteCode); }} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  joinGroup.mutate(inviteCode);
+                }}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="invite-code">Invite Code</Label>
                   <Input
@@ -162,7 +167,7 @@ export default function Groups() {
               </form>
             </DialogContent>
           </Dialog>
-          
+
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -174,7 +179,13 @@ export default function Groups() {
                 <DialogTitle>Create a New Group</DialogTitle>
                 <DialogDescription>Start a new dart league or competition</DialogDescription>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createGroup.mutate(newGroupName); }} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createGroup.mutate(newGroupName);
+                }}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="group-name">Group Name</Label>
                   <Input
@@ -218,13 +229,11 @@ export default function Groups() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       {group.name}
-                      {group.role === 'admin' && (
+                      {group.role === "admin" && (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Admin</span>
                       )}
                     </CardTitle>
-                    <CardDescription>
-                      Joined {new Date(group.created_at).toLocaleDateString()}
-                    </CardDescription>
+                    <CardDescription>Joined {new Date(group.created_at).toLocaleDateString()}</CardDescription>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>

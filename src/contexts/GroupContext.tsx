@@ -1,12 +1,11 @@
-import { createContext, useContext, ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useContext, ReactNode } from "react";
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Group {
   id: string;
   name: string;
-  invite_code: string;
   created_by: string | null;
   created_at: string;
 }
@@ -15,7 +14,7 @@ interface GroupMember {
   id: string;
   group_id: string;
   player_id: string;
-  role: 'admin' | 'member';
+  role: "admin" | "member";
   joined_at: string;
 }
 
@@ -34,14 +33,10 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const { groupId } = useParams<{ groupId: string }>();
 
   const { data: group, isLoading: groupLoading } = useQuery({
-    queryKey: ['group', groupId],
+    queryKey: ["group", groupId],
     queryFn: async () => {
       if (!groupId) return null;
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .single();
+      const { data, error } = await supabase.from("groups").select("*").eq("id", groupId).single();
       if (error) throw error;
       return data as Group;
     },
@@ -49,13 +44,10 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   });
 
   const { data: members = [], isLoading: membersLoading } = useQuery({
-    queryKey: ['group-members', groupId],
+    queryKey: ["group-members", groupId],
     queryFn: async () => {
       if (!groupId) return [];
-      const { data, error } = await supabase
-        .from('group_members')
-        .select('*')
-        .eq('group_id', groupId);
+      const { data, error } = await supabase.from("group_members").select("*").eq("group_id", groupId);
       if (error) throw error;
       return data as GroupMember[];
     },
@@ -68,14 +60,14 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const isMember = false;
 
   return (
-    <GroupContext.Provider 
-      value={{ 
-        groupId, 
-        group: group || null, 
-        members, 
+    <GroupContext.Provider
+      value={{
+        groupId,
+        group: group || null,
+        members,
         isLoading: groupLoading || membersLoading,
         isAdmin,
-        isMember
+        isMember,
       }}
     >
       {children}
@@ -86,7 +78,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 export function useGroup() {
   const context = useContext(GroupContext);
   if (context === undefined) {
-    throw new Error('useGroup must be used within a GroupProvider');
+    throw new Error("useGroup must be used within a GroupProvider");
   }
   return context;
 }
