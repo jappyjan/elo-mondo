@@ -69,19 +69,6 @@ export function DartInput({ onDartThrow, disabled, dartsThrown, onUndo, canUndo 
 
   return (
     <div className="space-y-4">
-      {/* Darts thrown indicator */}
-      <div className="flex justify-center gap-2">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              "w-3 h-3 rounded-full transition-colors",
-              i < dartsThrown ? "bg-primary" : "bg-muted"
-            )}
-          />
-        ))}
-      </div>
-
       {/* Multiplier Selection */}
       <div className="grid grid-cols-3 gap-2">
         <Button
