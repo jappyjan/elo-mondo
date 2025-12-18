@@ -100,7 +100,7 @@ export function RecordMultiPlayerMatchForm() {
                 <SelectContent>
                   {availablePlayers.map(player => (
                     <SelectItem key={player.id} value={player.id}>
-                      {player.name} ({player.elo_rating})
+                      {player.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -147,12 +147,7 @@ export function RecordMultiPlayerMatchForm() {
                     <div key={pr.playerId} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         {getRankIcon(pr.rank)}
-                        <div>
-                          <div className="font-semibold">{player?.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Current Elo: {player?.elo_rating}
-                          </div>
-                        </div>
+                        <div className="font-semibold">{player?.name}</div>
                       </div>
                       <X 
                         className="h-4 w-4 cursor-pointer hover:text-red-500" 

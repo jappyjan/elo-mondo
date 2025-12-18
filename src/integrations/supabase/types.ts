@@ -17,9 +17,6 @@ export type Database = {
       match_participants: {
         Row: {
           created_at: string
-          elo_after: number
-          elo_before: number
-          elo_change: number
           id: string
           is_winner: boolean
           match_id: string
@@ -28,9 +25,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          elo_after: number
-          elo_before: number
-          elo_change: number
           id?: string
           is_winner?: boolean
           match_id: string
@@ -39,9 +33,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          elo_after?: number
-          elo_before?: number
-          elo_change?: number
           id?: string
           is_winner?: boolean
           match_id?: string
@@ -68,41 +59,26 @@ export type Database = {
       matches: {
         Row: {
           created_at: string
-          elo_change: number
           id: string
-          loser_elo_after: number
-          loser_elo_before: number
           loser_id: string
           match_type: string
           total_players: number
-          winner_elo_after: number
-          winner_elo_before: number
           winner_id: string
         }
         Insert: {
           created_at?: string
-          elo_change: number
           id?: string
-          loser_elo_after: number
-          loser_elo_before: number
           loser_id: string
           match_type?: string
           total_players?: number
-          winner_elo_after: number
-          winner_elo_before: number
           winner_id: string
         }
         Update: {
           created_at?: string
-          elo_change?: number
           id?: string
-          loser_elo_after?: number
-          loser_elo_before?: number
           loser_id?: string
           match_type?: string
           total_players?: number
-          winner_elo_after?: number
-          winner_elo_before?: number
           winner_id?: string
         }
         Relationships: [
@@ -125,33 +101,21 @@ export type Database = {
       players: {
         Row: {
           created_at: string
-          elo_rating: number
           id: string
-          losses: number
-          matches_played: number
           name: string
           updated_at: string
-          wins: number
         }
         Insert: {
           created_at?: string
-          elo_rating?: number
           id?: string
-          losses?: number
-          matches_played?: number
           name: string
           updated_at?: string
-          wins?: number
         }
         Update: {
           created_at?: string
-          elo_rating?: number
           id?: string
-          losses?: number
-          matches_played?: number
           name?: string
           updated_at?: string
-          wins?: number
         }
         Relationships: []
       }

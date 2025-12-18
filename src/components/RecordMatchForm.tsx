@@ -47,7 +47,7 @@ export function RecordMatchForm() {
                 <SelectContent>
                   {availableWinners.map(player => (
                     <SelectItem key={player.id} value={player.id}>
-                      {player.name} ({player.elo_rating})
+                      {player.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -63,7 +63,7 @@ export function RecordMatchForm() {
                 <SelectContent>
                   {availableLosers.map(player => (
                     <SelectItem key={player.id} value={player.id}>
-                      {player.name} ({player.elo_rating})
+                      {player.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
