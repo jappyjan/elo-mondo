@@ -21,7 +21,7 @@ const Matches = () => {
         <AddPlayerForm />
 
         {/* Match Recording Forms */}
-        <Tabs defaultValue="1v1" className="w-full">
+        <Tabs defaultValue="multiplayer" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="1v1">1v1 Match</TabsTrigger>
             <TabsTrigger value="multiplayer">Multi-Player</TabsTrigger>
