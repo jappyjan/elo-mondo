@@ -398,116 +398,6 @@ export function useLiveGame() {
     });
   }, [gameState]);
 
-  const undoLastTurn = useCallback(() => {
-    if (!gameState) return;
-
-    setGameState((prev) => {
-      if (!prev) return null;
-
-      // Find the last player who has turn history
-      let lastPlayerWithTurn: string | null = null;
-      let lastTurnIndex = -1;
-
-      // Go backwards through players to find the last turn
-      for (let i = prev.currentPlayerIndex; ; ) {
-        i = (i - 1 + prev.playerOrder.length) % prev.playerOrder.length;
-        const playerId = prev.playerOrder[i];
-        const playerState = prev.playerStates[playerId];
-        
-        if (playerState.turnHistory.length > 0) {
-          lastPlayerWithTurn = playerId;
-          lastTurnIndex = i;
-          break;
-        }
-        
-        if (i === prev.currentPlayerIndex) break; // Full loop
-      }
-
-      if (!lastPlayerWithTurn) return prev;
-
-      const playerState = prev.playerStates[lastPlayerWithTurn];
-      const lastTurn = playerState.turnHistory[playerState.turnHistory.length - 1];
-
-      // Check if player was finished
-      const wasFinished = playerState.finishedRank !== null;
-
-      const restoredPlayerState: PlayerGameState = {
-        ...playerState,
-        currentScore: lastTurn.scoreAtStart,
-        hasDoubledIn: lastTurn.hadDoubledInBefore,
-        finishedRank: null,
-        turnHistory: playerState.turnHistory.slice(0, -1),
-      };
-
-      let newFinishedIds = prev.finishedPlayerIds;
-      let newNextRank = prev.nextRank;
-
-      if (wasFinished) {
-        newFinishedIds = newFinishedIds.filter((id) => id !== lastPlayerWithTurn);
-        newNextRank = newNextRank - 1;
-      }
-
-      return {
-        ...prev,
-        playerStates: {
-          ...prev.playerStates,
-          [lastPlayerWithTurn]: restoredPlayerState,
-        },
-        currentPlayerIndex: lastTurnIndex,
-        currentTurnDarts: [],
-        scoreBeforeTurn: lastTurn.scoreAtStart,
-        finishedPlayerIds: newFinishedIds,
-        nextRank: newNextRank,
-        isGameOver: false,
-        finishedAt: null,
-      };
-    });
-  }, [gameState]);
-
-  const endTurnEarly = useCallback(() => {
-    if (!gameState || gameState.currentTurnDarts.length === 0) return;
-
-    setGameState((prev) => {
-      if (!prev) return null;
-
-      const playerId = prev.playerOrder[prev.currentPlayerIndex];
-      const playerState = prev.playerStates[playerId];
-
-      let turnScore = 0;
-      if (prev.startRule === 'straight-in' || playerState.hasDoubledIn) {
-        turnScore = prev.currentTurnDarts.reduce((sum, d) => sum + d.score, 0);
-      }
-
-      const newScore = prev.scoreBeforeTurn - turnScore;
-
-      const turnRecord: TurnRecord = {
-        darts: prev.currentTurnDarts,
-        scoreAtStart: prev.scoreBeforeTurn,
-        scoreAtEnd: newScore,
-        isBust: false,
-        hadDoubledInBefore: playerState.hasDoubledIn,
-        doubledInThisTurn: prev.currentTurnDarts.some(
-          (d, i) => !playerState.hasDoubledIn && i === prev.currentTurnDarts.findIndex(dart => isDoubleThrow(dart)) && isDoubleThrow(d)
-        ),
-      };
-
-      const updatedPlayerState: PlayerGameState = {
-        ...playerState,
-        currentScore: newScore,
-        turnHistory: [...playerState.turnHistory, turnRecord],
-      };
-
-      return moveToNextPlayer({
-        ...prev,
-        playerStates: {
-          ...prev.playerStates,
-          [playerId]: updatedPlayerState,
-        },
-        currentTurnDarts: [],
-      });
-    });
-  }, [gameState]);
-
   const getCurrentTurnScore = useCallback((): number => {
     if (!gameState) return 0;
     
@@ -556,8 +446,6 @@ export function useLiveGame() {
     getActivePlayerOrder,
     validateAndThrowDart,
     undoLastDart,
-    undoLastTurn,
-    endTurnEarly,
     getCurrentTurnScore,
     getPotentialScore,
     getRankings,
