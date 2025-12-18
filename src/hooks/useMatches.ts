@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { MatchWithPlayers } from '@/types/darts';
 
-export function useMatches() {
+export function useMatches(groupId?: string) {
   return useQuery({
-    queryKey: ['matches'],
+    queryKey: ['matches', groupId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('matches')
         .select(`
           *,
@@ -20,9 +20,15 @@ export function useMatches() {
         `)
         .order('created_at', { ascending: false });
       
+      if (groupId) {
+        query = query.eq('group_id', groupId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as MatchWithPlayers[];
-    }
+    },
+    enabled: !!groupId,
   });
 }
 

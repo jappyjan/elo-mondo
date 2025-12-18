@@ -7,13 +7,24 @@ import { toast } from '@/components/ui/use-toast';
 const SUPABASE_URL = "https://stzilnijaoxwqyuyryts.supabase.co";
 
 // Fetch players with calculated Elo (with decay) from edge function
-export function useCalculatedPlayers(applyDecay: boolean = true, year?: number | null, includeProvisional: boolean = true) {
+export function useCalculatedPlayers(
+  groupId: string | undefined,
+  applyDecay: boolean = true, 
+  year?: number | null, 
+  includeProvisional: boolean = true
+) {
   return useQuery({
-    queryKey: ['calculated-players', applyDecay, year, includeProvisional],
+    queryKey: ['calculated-players', groupId, applyDecay, year, includeProvisional],
     queryFn: async (): Promise<EloCalculationResponse> => {
-      const body: { applyDecay: boolean; year?: number; includeProvisional: boolean } = { applyDecay, includeProvisional };
+      const body: { applyDecay: boolean; year?: number; includeProvisional: boolean; groupId?: string } = { 
+        applyDecay, 
+        includeProvisional 
+      };
       if (year) {
         body.year = year;
+      }
+      if (groupId) {
+        body.groupId = groupId;
       }
       
       const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-elo`, {
@@ -31,8 +42,9 @@ export function useCalculatedPlayers(applyDecay: boolean = true, year?: number |
       
       return response.json();
     },
-    staleTime: 10000, // Cache for 10 seconds
-    placeholderData: (previousData) => previousData, // Keep showing previous data while fetching
+    staleTime: 10000,
+    placeholderData: (previousData) => previousData,
+    enabled: !!groupId, // Only fetch when groupId is provided
   });
 }
 

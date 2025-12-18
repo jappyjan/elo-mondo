@@ -4,11 +4,13 @@ import { toast } from '@/components/ui/use-toast';
 import { MultiPlayerMatchRequest } from '@/types/darts';
 import { supabase } from '@/integrations/supabase/client';
 
-export function useRecordMultiPlayerMatch() {
+export function useRecordMultiPlayerMatch(groupId?: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ playerRankings }: MultiPlayerMatchRequest) => {
+      if (!groupId) throw new Error('Group ID is required');
+      
       // Get player names for the success message
       const playerIds = playerRankings.map(pr => pr.playerId);
       const { data: players, error: playersError } = await supabase
@@ -29,14 +31,15 @@ export function useRecordMultiPlayerMatch() {
       
       if (!winner || !loser) throw new Error('Invalid rankings provided');
       
-      // Create the match record - Elo is calculated on-the-fly by edge function
+      // Create the match record with group_id
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
           winner_id: winner.playerId,
           loser_id: loser.playerId,
           match_type: 'multiplayer',
-          total_players: playerRankings.length
+          total_players: playerRankings.length,
+          group_id: groupId
         })
         .select()
         .single();
