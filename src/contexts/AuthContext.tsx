@@ -72,7 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Use local scope to clear session without requiring server validation
+    await supabase.auth.signOut({ scope: 'local' });
+    setUser(null);
+    setSession(null);
   };
 
   return (
