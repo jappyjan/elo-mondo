@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DartThrow } from '@/types/liveGame';
 import { cn } from '@/lib/utils';
+import { Undo2 } from 'lucide-react';
 
 interface DartInputProps {
   onDartThrow: (dart: DartThrow) => void;
   disabled?: boolean;
   dartsThrown: number;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 type Multiplier = 1 | 2 | 3;
@@ -22,7 +25,7 @@ const createDart = (
   label,
 });
 
-export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps) {
+export function DartInput({ onDartThrow, disabled, dartsThrown, onUndo, canUndo }: DartInputProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
 
   const getLabel = (num: number, mult: Multiplier): string => {
@@ -127,8 +130,8 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
         ))}
       </div>
 
-      {/* Bulls and Miss */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Bulls, Miss and Undo */}
+      <div className="grid grid-cols-4 gap-2">
         <Button
           onClick={handleOuterBull}
           disabled={disabled}
@@ -150,6 +153,14 @@ export function DartInput({ onDartThrow, disabled, dartsThrown }: DartInputProps
           className={cn(buttonBase)}
         >
           MISS
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onUndo}
+          disabled={!canUndo}
+          className={cn(buttonBase)}
+        >
+          <Undo2 className="h-5 w-5" />
         </Button>
       </div>
     </div>

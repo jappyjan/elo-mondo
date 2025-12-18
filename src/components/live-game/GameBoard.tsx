@@ -9,7 +9,7 @@ import { TurnHistory } from './TurnHistory';
 import { GameResults } from './GameResults';
 import { DartThrow } from '@/types/liveGame';
 import { cn } from '@/lib/utils';
-import { Undo2, RotateCcw, History, AlertTriangle, FastForward } from 'lucide-react';
+import { RotateCcw, History, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,8 +38,6 @@ export function GameBoard({ onReset }: GameBoardProps) {
     getCurrentPlayer,
     validateAndThrowDart,
     undoLastDart,
-    undoLastTurn,
-    endTurnEarly,
     getCurrentTurnScore,
     getPotentialScore,
   } = useLiveGameContext();
@@ -169,44 +167,13 @@ export function GameBoard({ onReset }: GameBoardProps) {
         </CardContent>
       </Card>
 
-      {/* Controls */}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={undoLastDart}
-          disabled={!gameState.globalThrowHistory || gameState.globalThrowHistory.length === 0}
-          className="flex-1"
-        >
-          <Undo2 className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">Undo Dart</span>
-          <span className="sm:hidden">Dart</span>
-        </Button>
-        <Button
-          variant="outline"
-          onClick={undoLastTurn}
-          className="flex-1"
-        >
-          <Undo2 className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">Undo Turn</span>
-          <span className="sm:hidden">Turn</span>
-        </Button>
-        <Button
-          variant="outline"
-          onClick={endTurnEarly}
-          disabled={gameState.currentTurnDarts.length === 0}
-          className="flex-1"
-        >
-          <FastForward className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">End Turn</span>
-          <span className="sm:hidden">End</span>
-        </Button>
-      </div>
-
       {/* Dart Input */}
       <DartInput
         onDartThrow={handleDartThrow}
         disabled={gameState.currentTurnDarts.length >= 3}
         dartsThrown={gameState.currentTurnDarts.length}
+        onUndo={undoLastDart}
+        canUndo={!!gameState.globalThrowHistory && gameState.globalThrowHistory.length > 0}
       />
 
       {/* Turn History (Collapsible) */}
