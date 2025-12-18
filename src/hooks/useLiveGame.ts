@@ -6,6 +6,7 @@ import {
   PlayerGameState,
   TurnRecord,
   GamePlayer,
+  GlobalThrowRecord,
 } from '@/types/liveGame';
 
 const STORAGE_KEY = 'elomondo-live-game';
@@ -50,6 +51,7 @@ const createInitialGameState = (settings: GameSettings): LiveGameState => {
     isGameOver: false,
     startedAt: new Date().toISOString(),
     finishedAt: null,
+    globalThrowHistory: [],
   };
 };
 
@@ -140,6 +142,22 @@ export function useLiveGame() {
         return { success: false, isBust: false, isFinished: false };
       }
 
+      // Create snapshot before this throw for undo capability
+      const throwRecord: GlobalThrowRecord = {
+        playerId: currentPlayer.playerId,
+        dart,
+        snapshot: {
+          currentPlayerIndex: gameState.currentPlayerIndex,
+          currentTurnDarts: [...gameState.currentTurnDarts],
+          scoreBeforeTurn: gameState.scoreBeforeTurn,
+          playerStates: JSON.parse(JSON.stringify(gameState.playerStates)),
+          finishedPlayerIds: [...gameState.finishedPlayerIds],
+          nextRank: gameState.nextRank,
+          isGameOver: gameState.isGameOver,
+          finishedAt: gameState.finishedAt,
+        },
+      };
+
       let newDarts = [...gameState.currentTurnDarts, dart];
       let hasDoubledIn = currentPlayer.hasDoubledIn;
       let doubledInThisTurn = false;
@@ -211,6 +229,7 @@ export function useLiveGame() {
               [playerId]: updatedPlayerState,
             },
             currentTurnDarts: [],
+            globalThrowHistory: [...prev.globalThrowHistory, throwRecord],
           });
         });
 
@@ -237,6 +256,7 @@ export function useLiveGame() {
             ...prev.playerStates,
             [playerId]: updatedPlayerState,
           },
+          globalThrowHistory: [...prev.globalThrowHistory, throwRecord],
         };
 
         // If finished or 3 darts thrown, end turn
@@ -350,13 +370,25 @@ export function useLiveGame() {
   };
 
   const undoLastDart = useCallback(() => {
-    if (!gameState || gameState.currentTurnDarts.length === 0) return;
+    if (!gameState || gameState.globalThrowHistory.length === 0) return;
 
     setGameState((prev) => {
-      if (!prev) return null;
+      if (!prev || prev.globalThrowHistory.length === 0) return prev;
+
+      const lastThrow = prev.globalThrowHistory[prev.globalThrowHistory.length - 1];
+      const { snapshot } = lastThrow;
+
       return {
         ...prev,
-        currentTurnDarts: prev.currentTurnDarts.slice(0, -1),
+        currentPlayerIndex: snapshot.currentPlayerIndex,
+        currentTurnDarts: snapshot.currentTurnDarts,
+        scoreBeforeTurn: snapshot.scoreBeforeTurn,
+        playerStates: snapshot.playerStates,
+        finishedPlayerIds: snapshot.finishedPlayerIds,
+        nextRank: snapshot.nextRank,
+        isGameOver: snapshot.isGameOver,
+        finishedAt: snapshot.finishedAt,
+        globalThrowHistory: prev.globalThrowHistory.slice(0, -1),
       };
     });
   }, [gameState]);
