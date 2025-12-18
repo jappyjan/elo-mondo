@@ -124,7 +124,10 @@ export default function Groups() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="flex justify-end mb-4">
-        <Button variant="ghost" size="sm" onClick={signOut}>
+        <Button variant="ghost" size="sm" onClick={async () => {
+          await signOut();
+          navigate('/');
+        }}>
           <LogOut className="h-4 w-4 mr-2" /> Sign Out
         </Button>
       </div>
