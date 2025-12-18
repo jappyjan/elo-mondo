@@ -34,6 +34,23 @@ export interface TurnRecord {
   doubledInThisTurn: boolean;
 }
 
+// Snapshot of game state before a throw for undo capability
+export interface GlobalThrowRecord {
+  playerId: string;
+  dart: DartThrow;
+  // Snapshot of state before this throw
+  snapshot: {
+    currentPlayerIndex: number;
+    currentTurnDarts: DartThrow[];
+    scoreBeforeTurn: number;
+    playerStates: Record<string, PlayerGameState>;
+    finishedPlayerIds: string[];
+    nextRank: number;
+    isGameOver: boolean;
+    finishedAt: string | null;
+  };
+}
+
 export interface LiveGameState {
   // Game configuration
   gameType: GameType;
@@ -58,6 +75,9 @@ export interface LiveGameState {
   // Timestamps
   startedAt: string;
   finishedAt: string | null;
+  
+  // Global throw history for undo capability
+  globalThrowHistory: GlobalThrowRecord[];
 }
 
 export interface GameSettings {
