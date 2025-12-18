@@ -174,7 +174,7 @@ export function GameBoard({ onReset }: GameBoardProps) {
         <Button
           variant="outline"
           onClick={undoLastDart}
-          disabled={gameState.currentTurnDarts.length === 0}
+          disabled={!gameState.globalThrowHistory || gameState.globalThrowHistory.length === 0}
           className="flex-1"
         >
           <Undo2 className="h-4 w-4 sm:mr-1" />
