@@ -158,7 +158,7 @@ export function DartInput({ onDartThrow, disabled, dartsThrown, onUndo, canUndo 
           variant="outline"
           onClick={onUndo}
           disabled={!canUndo}
-          className={cn(buttonBase)}
+          className={cn(buttonBase, "border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground")}
         >
           <Undo2 className="h-5 w-5" />
         </Button>
