@@ -1,14 +1,17 @@
 # Nixpacks configuration for Vite React app
 
+providers = []
+
 [phases.setup]
-nixPkgs = ["bun"]
+nixPkgs = ["curl", "bash", "unzip"]
+cmds = ["curl -fsSL https://bun.sh/install | bash"]
 
 [phases.install]
-cmds = ["bun install --frozen-lockfile"]
+cmds = ["~/.bun/bin/bun install --frozen-lockfile"]
 
 [phases.build]
-cmds = ["bun run build"]
+cmds = ["~/.bun/bin/bun run build"]
 
 [start]
-cmd = "bunx serve dist -s -l $PORT"
+cmd = "~/.bun/bin/bunx serve dist -s -l $PORT"
 
