@@ -2,11 +2,11 @@ import { LiveGameProvider, useLiveGameContext } from '@/contexts/LiveGameContext
 import { GameSetup } from '@/components/live-game/GameSetup';
 import { GameBoard } from '@/components/live-game/GameBoard';
 import { GameSettings } from '@/types/liveGame';
-import { useParams } from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 
 function LiveGameContent() {
   const { gameState, startGame, resetGame } = useLiveGameContext();
-  const { groupId } = useParams();
+  const { groupId } = useParams<{ groupId: string }>();
 
   const handleStartGame = (settings: GameSettings) => {
     startGame(settings);
@@ -15,6 +15,11 @@ function LiveGameContent() {
   const handleReset = () => {
     resetGame();
   };
+
+  // Ensure groupId is defined before rendering the game
+  if (!groupId) {
+    throw new Error('Group ID is required');
+  }
 
   return (
     <main className="container mx-auto px-4 py-6 max-w-2xl">
