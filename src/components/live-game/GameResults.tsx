@@ -69,6 +69,15 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
           }
 
           playerId = newPlayer.id;
+
+          // Also add the new player to the group
+          const { error: memberError } = await supabase
+            .from('group_members')
+            .insert({ group_id: groupId, player_id: playerId, role: 'member' });
+
+          if (memberError) {
+            throw new Error(`Failed to add player ${ps.playerName} to group: ${memberError.message}`);
+          }
         }
 
         playerRankings.push({
