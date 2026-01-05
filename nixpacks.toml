@@ -15,5 +15,5 @@ dependsOn = ["install"]
 cmds = ["/usr/local/bun/bin/bun run build"]
 
 [start]
-cmd = "/usr/local/bun/bin/bunx serve dist -s -l $PORT"
+cmd = "caddy run --config /app/Caddyfile --adapter caddyfile"
 
