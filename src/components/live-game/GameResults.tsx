@@ -11,12 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 interface GameResultsProps {
   playerStates: Record<string, PlayerGameState>;
   onNewGame: () => void;
-  onReset: () => void;
+  groupId: string;
 }
 
-export function GameResults({ playerStates, onNewGame, onReset }: GameResultsProps) {
+export function GameResults({ playerStates, onNewGame, groupId }: GameResultsProps) {
   const navigate = useNavigate();
-  const recordMatch = useRecordMultiPlayerMatch();
+  const recordMatch = useRecordMultiPlayerMatch(groupId);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 

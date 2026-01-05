@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/use-toast';
 import { MultiPlayerMatchRequest } from '@/types/darts';
 import { supabase } from '@/integrations/supabase/client';
 
-export function useRecordMultiPlayerMatch(groupId?: string) {
+export function useRecordMultiPlayerMatch(groupId: string) {
   const queryClient = useQueryClient();
   
   return useMutation({

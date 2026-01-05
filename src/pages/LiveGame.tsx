@@ -2,9 +2,11 @@ import { LiveGameProvider, useLiveGameContext } from '@/contexts/LiveGameContext
 import { GameSetup } from '@/components/live-game/GameSetup';
 import { GameBoard } from '@/components/live-game/GameBoard';
 import { GameSettings } from '@/types/liveGame';
+import { useParams } from 'react-router-dom';
 
 function LiveGameContent() {
   const { gameState, startGame, resetGame } = useLiveGameContext();
+  const { groupId } = useParams();
 
   const handleStartGame = (settings: GameSettings) => {
     startGame(settings);
@@ -24,7 +26,7 @@ function LiveGameContent() {
       </div>
 
       {gameState ? (
-        <GameBoard onReset={handleReset} />
+        <GameBoard onReset={handleReset} groupId={groupId} />
       ) : (
         <GameSetup onStartGame={handleStartGame} />
       )}

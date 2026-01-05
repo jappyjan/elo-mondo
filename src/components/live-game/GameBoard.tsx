@@ -29,9 +29,10 @@ import {
 
 interface GameBoardProps {
   onReset: () => void;
+  groupId: string;
 }
 
-export function GameBoard({ onReset }: GameBoardProps) {
+export function GameBoard({ onReset, groupId }: GameBoardProps) {
   const {
     gameState,
     resetGame,
@@ -61,7 +62,7 @@ export function GameBoard({ onReset }: GameBoardProps) {
         onNewGame={() => {
           resetGame();
         }}
-        onReset={onReset}
+        groupId={groupId}
       />
     );
   }
