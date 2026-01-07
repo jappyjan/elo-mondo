@@ -3,11 +3,12 @@ import { useParams } from 'react-router-dom';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart3, User, Users, TrendingUp, Loader2 } from 'lucide-react';
+import { BarChart3, User, Users, TrendingUp, Target, Loader2 } from 'lucide-react';
 import AnalyticsOverview from '@/components/analytics/AnalyticsOverview';
 import IndividualPerformance from '@/components/analytics/IndividualPerformance';
 import HeadToHead from '@/components/analytics/HeadToHead';
 import TrendAnalysis from '@/components/analytics/TrendAnalysis';
+import DartsAnalytics from '@/components/analytics/DartsAnalytics';
 
 const Analytics = () => {
   const { groupId } = useParams<{ groupId: string }>();
@@ -83,10 +84,14 @@ const Analytics = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="gap-2">
             <BarChart3 className="h-4 w-4 hidden sm:inline" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="darts" className="gap-2">
+            <Target className="h-4 w-4 hidden sm:inline" />
+            Darts
           </TabsTrigger>
           <TabsTrigger value="individual" className="gap-2">
             <User className="h-4 w-4 hidden sm:inline" />
@@ -108,6 +113,10 @@ const Analytics = () => {
             matchHistory={matchHistory}
             selectedYear={selectedYear}
           />
+        </TabsContent>
+
+        <TabsContent value="darts">
+          <DartsAnalytics />
         </TabsContent>
 
         <TabsContent value="individual">
