@@ -2,23 +2,33 @@ import { LiveGameProvider, useLiveGameContext } from '@/contexts/LiveGameContext
 import { GameSetup } from '@/components/live-game/GameSetup';
 import { GameBoard } from '@/components/live-game/GameBoard';
 import { GameSettings } from '@/types/liveGame';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { Skeleton } from '@/components/ui/skeleton';
 
-function LiveGameContent() {
-  const { gameState, startGame, resetGame } = useLiveGameContext();
-  const { groupId } = useParams<{ groupId: string }>();
+function LiveGameContent({ groupId }: { groupId: string }) {
+  const { gameState, isLoading, startGame, resetGame } = useLiveGameContext();
 
-  const handleStartGame = (settings: GameSettings) => {
-    startGame(settings);
+  const handleStartGame = async (settings: GameSettings) => {
+    await startGame(settings);
   };
 
-  const handleReset = () => {
-    resetGame();
+  const handleReset = async () => {
+    await resetGame();
   };
 
-  // Ensure groupId is defined before rendering the game
-  if (!groupId) {
-    throw new Error('Group ID is required');
+  if (isLoading) {
+    return (
+      <main className="container mx-auto px-4 py-6 max-w-2xl">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-5 w-64" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-60 w-full" />
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -40,9 +50,15 @@ function LiveGameContent() {
 }
 
 export default function LiveGame() {
+  const { groupId } = useParams<{ groupId: string }>();
+
+  if (!groupId) {
+    throw new Error('Group ID is required');
+  }
+
   return (
-    <LiveGameProvider>
-      <LiveGameContent />
+    <LiveGameProvider groupId={groupId}>
+      <LiveGameContent groupId={groupId} />
     </LiveGameProvider>
   );
 }

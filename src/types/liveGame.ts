@@ -3,13 +3,15 @@ export type StartRule = 'straight-in' | 'double-in';
 export type EndRule = 'straight-out' | 'double-out';
 
 export interface GamePlayer {
-  id: string;
+  id: string; // live_game_players.id (game-specific)
+  actualPlayerId: string | null; // players.id (null for temporary players)
   name: string;
   isTemporary?: boolean;
 }
 
 export interface PlayerGameState {
-  playerId: string;
+  playerId: string; // live_game_players.id (game-specific)
+  actualPlayerId: string | null; // players.id (null for temporary players)
   playerName: string;
   startingScore: number;
   currentScore: number;
@@ -34,24 +36,10 @@ export interface TurnRecord {
   doubledInThisTurn: boolean;
 }
 
-// Snapshot of game state before a throw for undo capability
-export interface GlobalThrowRecord {
-  playerId: string;
-  dart: DartThrow;
-  // Snapshot of state before this throw
-  snapshot: {
-    currentPlayerIndex: number;
-    currentTurnDarts: DartThrow[];
-    scoreBeforeTurn: number;
-    playerStates: Record<string, PlayerGameState>;
-    finishedPlayerIds: string[];
-    nextRank: number;
-    isGameOver: boolean;
-    finishedAt: string | null;
-  };
-}
-
 export interface LiveGameState {
+  // Database ID
+  gameId?: string;
+  
   // Game configuration
   gameType: GameType;
   startRule: StartRule;
@@ -75,9 +63,6 @@ export interface LiveGameState {
   // Timestamps
   startedAt: string;
   finishedAt: string | null;
-  
-  // Global throw history for undo capability
-  globalThrowHistory: GlobalThrowRecord[];
 }
 
 export interface GameSettings {

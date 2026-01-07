@@ -5,8 +5,13 @@ type LiveGameContextType = ReturnType<typeof useLiveGame>;
 
 const LiveGameContext = createContext<LiveGameContextType | null>(null);
 
-export function LiveGameProvider({ children }: { children: ReactNode }) {
-  const liveGame = useLiveGame();
+interface LiveGameProviderProps {
+  children: ReactNode;
+  groupId: string;
+}
+
+export function LiveGameProvider({ children, groupId }: LiveGameProviderProps) {
+  const liveGame = useLiveGame(groupId);
   
   return (
     <LiveGameContext.Provider value={liveGame}>

@@ -138,6 +138,152 @@ export type Database = {
         }
         Relationships: []
       }
+      live_games: {
+        Row: {
+          id: string
+          group_id: string
+          created_by: string
+          game_type: Database["public"]["Enums"]["game_type"]
+          start_rule: Database["public"]["Enums"]["start_rule"]
+          end_rule: Database["public"]["Enums"]["end_rule"]
+          status: Database["public"]["Enums"]["game_status"]
+          started_at: string
+          finished_at: string | null
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          created_by: string
+          game_type: Database["public"]["Enums"]["game_type"]
+          start_rule: Database["public"]["Enums"]["start_rule"]
+          end_rule: Database["public"]["Enums"]["end_rule"]
+          status?: Database["public"]["Enums"]["game_status"]
+          started_at?: string
+          finished_at?: string | null
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          created_by?: string
+          game_type?: Database["public"]["Enums"]["game_type"]
+          start_rule?: Database["public"]["Enums"]["start_rule"]
+          end_rule?: Database["public"]["Enums"]["end_rule"]
+          status?: Database["public"]["Enums"]["game_status"]
+          started_at?: string
+          finished_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_games_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_game_players: {
+        Row: {
+          id: string
+          game_id: string
+          player_id: string | null
+          player_name: string
+          is_temporary: boolean
+          play_order: number
+          starting_score: number
+          finished_rank: number | null
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          player_id?: string | null
+          player_name: string
+          is_temporary?: boolean
+          play_order: number
+          starting_score: number
+          finished_rank?: number | null
+        }
+        Update: {
+          id?: string
+          game_id?: string
+          player_id?: string | null
+          player_name?: string
+          is_temporary?: boolean
+          play_order?: number
+          starting_score?: number
+          finished_rank?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_game_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "live_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_throws: {
+        Row: {
+          id: string
+          game_id: string
+          game_player_id: string
+          turn_number: number
+          throw_index: number
+          segment: number
+          multiplier: number
+          score: number
+          label: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          game_player_id: string
+          turn_number: number
+          throw_index: number
+          segment: number
+          multiplier: number
+          score: number
+          label: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          game_id?: string
+          game_player_id?: string
+          turn_number?: number
+          throw_index?: number
+          segment?: number
+          multiplier?: number
+          score?: number
+          label?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_throws_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "live_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_throws_game_player_id_fkey"
+            columns: ["game_player_id"]
+            isOneToOne: false
+            referencedRelation: "live_game_players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_participants: {
         Row: {
           created_at: string
@@ -274,7 +420,11 @@ export type Database = {
       join_group_by_code: { Args: { _invite_code: string }; Returns: string }
     }
     Enums: {
+      game_status: "in_progress" | "completed" | "abandoned"
+      game_type: "301" | "501"
       group_role: "admin" | "member"
+      start_rule: "straight-in" | "double-in"
+      end_rule: "straight-out" | "double-out"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -402,7 +552,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      game_status: ["in_progress", "completed", "abandoned"],
+      game_type: ["301", "501"],
       group_role: ["admin", "member"],
+      start_rule: ["straight-in", "double-in"],
+      end_rule: ["straight-out", "double-out"],
     },
   },
 } as const

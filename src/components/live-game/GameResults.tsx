@@ -54,10 +54,10 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
       const playerRankings: { playerId: string; rank: number }[] = [];
 
       for (const ps of rankings) {
-        let playerId = ps.playerId;
+        let playerId = ps.actualPlayerId;
 
-        // If this is a temporary player, create them in the database first
-        if (ps.playerId.startsWith('temp-')) {
+        // If this is a temporary player (no actualPlayerId), create them in the database first
+        if (!playerId) {
           const { data: newPlayer, error } = await supabase
             .from('players')
             .insert({ name: ps.playerName })
@@ -122,7 +122,7 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
                 <span className="text-2xl">{getRankIcon(ps.finishedRank!)}</span>
                 <div>
                   <div className="font-bold">{ps.playerName}</div>
-                  {ps.playerId.startsWith('temp-') && (
+                  {!ps.actualPlayerId && (
                     <div className="text-xs text-muted-foreground">New Player</div>
                   )}
                 </div>

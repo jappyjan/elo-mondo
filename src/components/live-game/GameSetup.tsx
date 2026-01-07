@@ -51,7 +51,11 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
   const handleSelectPlayer = (playerId: string) => {
     const player = existingPlayers.find(p => p.id === playerId);
     if (player && !selectedPlayers.find(p => p.id === player.id)) {
-      setSelectedPlayers(prev => [...prev, { id: player.id, name: player.name }]);
+      setSelectedPlayers(prev => [...prev, { 
+        id: player.id, 
+        actualPlayerId: player.id, 
+        name: player.name 
+      }]);
     }
   };
 
@@ -60,7 +64,7 @@ export function GameSetup({ onStartGame }: GameSetupProps) {
       const tempId = `temp-${Date.now()}`;
       setSelectedPlayers(prev => [
         ...prev,
-        { id: tempId, name: tempPlayerName.trim(), isTemporary: true }
+        { id: tempId, actualPlayerId: null, name: tempPlayerName.trim(), isTemporary: true }
       ]);
       setTempPlayerName('');
     }
