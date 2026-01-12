@@ -174,7 +174,7 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
         disabled={gameState.currentTurnDarts.length >= 3}
         dartsThrown={gameState.currentTurnDarts.length}
         onUndo={undoLastDart}
-        canUndo={!!gameState.globalThrowHistory && gameState.globalThrowHistory.length > 0}
+        canUndo={gameState.currentTurnDarts.length > 0 || Object.values(gameState.playerStates).some(p => p.turnHistory.length > 0)}
       />
 
       {/* Turn History (Collapsible) */}
