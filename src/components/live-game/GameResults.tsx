@@ -52,31 +52,59 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
     try {
       // First, create any temporary players in the database
       const playerRankings: { playerId: string; rank: number }[] = [];
+      const tempPlayerIdCache = new Map<string, string>();
 
       for (const ps of rankings) {
         let playerId = ps.actualPlayerId;
 
         // If this is a temporary player (no actualPlayerId), create them in the database first
         if (!playerId) {
-          const { data: newPlayer, error } = await supabase
-            .from('players')
-            .insert({ name: ps.playerName })
-            .select()
-            .single();
+          const normalizedName = ps.playerName.trim();
+          const cacheKey = normalizedName.toLowerCase();
+          const cachedId = tempPlayerIdCache.get(cacheKey);
 
-          if (error) {
-            throw new Error(`Failed to create player ${ps.playerName}: ${error.message}`);
+          if (cachedId) {
+            playerId = cachedId;
+          } else {
+            const { data: existingPlayers, error: existingError } = await supabase
+              .from('players')
+              .select('id')
+              .eq('name', normalizedName)
+              .limit(1);
+
+            if (existingError) {
+              throw new Error(`Failed to look up player ${normalizedName}: ${existingError.message}`);
+            }
+
+            if (existingPlayers && existingPlayers.length > 0) {
+              playerId = existingPlayers[0].id;
+            } else {
+              const { data: newPlayer, error } = await supabase
+                .from('players')
+                .insert({ name: normalizedName })
+                .select()
+                .single();
+
+              if (error) {
+                throw new Error(`Failed to create player ${normalizedName}: ${error.message}`);
+              }
+
+              playerId = newPlayer.id;
+            }
+
+            tempPlayerIdCache.set(cacheKey, playerId);
           }
-
-          playerId = newPlayer.id;
 
           // Also add the new player to the group
           const { error: memberError } = await supabase
             .from('group_members')
-            .insert({ group_id: groupId, player_id: playerId, role: 'member' });
+            .upsert(
+              { group_id: groupId, player_id: playerId, role: 'member' },
+              { onConflict: 'group_id,player_id', ignoreDuplicates: true },
+            );
 
           if (memberError) {
-            throw new Error(`Failed to add player ${ps.playerName} to group: ${memberError.message}`);
+            throw new Error(`Failed to add player ${normalizedName} to group: ${memberError.message}`);
           }
         }
 
