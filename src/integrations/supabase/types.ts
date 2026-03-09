@@ -408,6 +408,10 @@ export type Database = {
     }
     Functions: {
       accept_group_invite: { Args: { _invite_id: string }; Returns: string }
+      ensure_group_temp_player: {
+        Args: { _group_id: string; _player_name: string }
+        Returns: string
+      }
       get_player_id_for_user: { Args: { _user_id: string }; Returns: string }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
