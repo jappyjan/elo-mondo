@@ -66,45 +66,17 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
           if (cachedId) {
             playerId = cachedId;
           } else {
-            const { data: existingPlayers, error: existingError } = await supabase
-              .from('players')
-              .select('id')
-              .eq('name', normalizedName)
-              .limit(1);
+            const { data: resolvedPlayerId, error } = await supabase.rpc('ensure_group_temp_player', {
+              _group_id: groupId,
+              _player_name: normalizedName,
+            });
 
-            if (existingError) {
-              throw new Error(`Failed to look up player ${normalizedName}: ${existingError.message}`);
+            if (error || !resolvedPlayerId) {
+              throw new Error(`Failed to add player ${normalizedName} to group: ${error?.message || 'Unknown error'}`);
             }
 
-            if (existingPlayers && existingPlayers.length > 0) {
-              playerId = existingPlayers[0].id;
-            } else {
-              const { data: newPlayer, error } = await supabase
-                .from('players')
-                .insert({ name: normalizedName })
-                .select()
-                .single();
-
-              if (error) {
-                throw new Error(`Failed to create player ${normalizedName}: ${error.message}`);
-              }
-
-              playerId = newPlayer.id;
-            }
-
+            playerId = resolvedPlayerId;
             tempPlayerIdCache.set(cacheKey, playerId);
-          }
-
-          // Also add the new player to the group
-          const { error: memberError } = await supabase
-            .from('group_members')
-            .upsert(
-              { group_id: groupId, player_id: playerId, role: 'member' },
-              { onConflict: 'group_id,player_id', ignoreDuplicates: true },
-            );
-
-          if (memberError) {
-            throw new Error(`Failed to add player ${normalizedName} to group: ${memberError.message}`);
           }
         }
 
@@ -117,10 +89,11 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
       // Now record the match with all players (including newly created ones)
       await recordMatch.mutateAsync({ playerRankings });
       setIsSaved(true);
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save match';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save match',
+        description: message,
         variant: 'destructive',
       });
     } finally {
