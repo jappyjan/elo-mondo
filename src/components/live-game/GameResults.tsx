@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlayerGameState } from '@/types/liveGame';
-import { Trophy, Save, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Save, RotateCcw, Home, Undo2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRecordMultiPlayerMatch } from '@/hooks/useRecordMultiPlayerMatch';
 import { useState } from 'react';
@@ -11,10 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 interface GameResultsProps {
   playerStates: Record<string, PlayerGameState>;
   onNewGame: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
   groupId: string;
 }
 
-export function GameResults({ playerStates, onNewGame, groupId }: GameResultsProps) {
+export function GameResults({ playerStates, onNewGame, onUndo, canUndo, groupId }: GameResultsProps) {
   const navigate = useNavigate();
   const recordMatch = useRecordMultiPlayerMatch(groupId);
   const [isSaved, setIsSaved] = useState(false);
@@ -161,6 +163,13 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
             <div className="text-center text-sm text-muted-foreground py-2">
               Need at least 2 players to save ELO
             </div>
+          )}
+
+          {!isSaved && !isSaving && !recordMatch.isPending && canUndo && (
+            <Button variant="outline" onClick={onUndo} className="w-full" size="lg">
+              <Undo2 className="h-4 w-4 mr-2" />
+              Undo Last Throw
+            </Button>
           )}
 
           <div className="grid grid-cols-2 gap-2">
