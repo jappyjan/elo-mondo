@@ -1,9 +1,18 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameResults } from './GameResults';
 import { PlayerGameState } from '@/types/liveGame';
+
+const recordMatch = vi.hoisted(() => ({
+  mutateAsync: vi.fn(),
+  isPending: false,
+}));
+
+vi.mock('@/hooks/useRecordMultiPlayerMatch', () => ({
+  useRecordMultiPlayerMatch: () => recordMatch,
+}));
 
 const makePlayerState = (overrides: Partial<PlayerGameState>): PlayerGameState => ({
   playerId: 'game-player-1',
@@ -76,6 +85,8 @@ function renderGameResults({
 describe('GameResults', () => {
   afterEach(() => {
     cleanup();
+    recordMatch.mutateAsync.mockReset();
+    recordMatch.isPending = false;
   });
 
   it('calls undo when Undo Last Throw is clicked before saving', () => {
@@ -90,5 +101,25 @@ describe('GameResults', () => {
     renderGameResults({ canUndo: false });
 
     expect(screen.queryByRole('button', { name: /undo last throw/i })).toBeNull();
+  });
+
+  it('hides undo while saving to ELO is pending', () => {
+    recordMatch.isPending = true;
+
+    renderGameResults();
+
+    expect(screen.queryByRole('button', { name: /undo last throw/i })).toBeNull();
+  });
+
+  it('hides undo after saving to ELO', async () => {
+    recordMatch.mutateAsync.mockResolvedValue(undefined);
+
+    renderGameResults();
+
+    fireEvent.click(screen.getByRole('button', { name: /save to elo rankings/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /undo last throw/i })).toBeNull();
+    });
   });
 });

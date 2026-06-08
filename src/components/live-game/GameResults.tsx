@@ -192,7 +192,7 @@ export function GameResults({ playerStates, onNewGame, onUndo, canUndo, groupId 
             </div>
           )}
 
-          {!isSaved && canUndo && (
+          {!isSaved && !isSaving && !recordMatch.isPending && canUndo && (
             <Button variant="outline" onClick={onUndo} className="w-full" size="lg">
               <Undo2 className="h-4 w-4 mr-2" />
               Undo Last Throw

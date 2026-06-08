@@ -21,7 +21,7 @@
   - Import `Undo2` from `lucide-react`.
   - Render a full-width `Undo Last Throw` button before New Game/Dashboard actions when the match has not been saved to ELO and undo is available.
 - Create: `src/components/live-game/GameResults.test.tsx`
-  - Verify the Undo button appears before saving, calls `onUndo`, and hides when undo is unavailable.
+  - Verify the Undo button appears before saving, calls `onUndo`, and hides when undo is unavailable, saving, or saved.
 - Modify: `package.json` and `package-lock.json`
   - Add Vitest, React Testing Library, and jsdom dependencies.
   - Add the `test` script.
@@ -133,6 +133,6 @@ Do not commit unless the user explicitly requests it.
 
 ## Self-Review
 
-- Spec coverage: The plan adds the results-screen Undo button, reuses `undoLastDart`, returns to the active board through existing state changes, hides undo after ELO save, and adds a focused Vitest test for the behavior.
+- Spec coverage: The plan adds the results-screen Undo button, reuses `undoLastDart`, returns to the active board through existing state changes, hides undo while saving and after ELO save, and adds focused Vitest tests for the behavior.
 - Placeholder scan: No placeholder markers or unspecified implementation steps remain.
 - Type consistency: `onUndo` and `canUndo` are defined in `GameResultsProps`, consumed by `GameResults`, and passed by `GameBoard`.

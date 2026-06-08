@@ -9,7 +9,7 @@ Add a way to undo an accidental winning throw from the game complete screen.
 - Show an Undo button on the results screen before the match is saved to ELO.
 - Reuse the existing `undoLastDart` logic in `useLiveGame`.
 - Return the user to the active game board after undoing the winning throw.
-- Do not allow undo after the match has been saved to ELO, because saved rankings would no longer match the corrected live game.
+- Do not allow undo while the match is saving or after it has been saved to ELO, because saved rankings would no longer match the corrected live game.
 
 ## Approach
 
@@ -24,6 +24,6 @@ Keep the current `undoLastDart` error behavior. The existing hook logs database 
 ## Testing
 
 - Add Vitest with React Testing Library and jsdom because the repo did not have a unit test runner.
-- Cover the results-screen Undo button with a focused component test.
+- Cover the results-screen Undo button with focused component tests, including unavailable, saving, and saved states.
 - Build the app with the existing production build script.
 - Run lint on the changed source files. Full-project lint may still report unrelated pre-existing issues.
