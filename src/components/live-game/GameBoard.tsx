@@ -55,6 +55,8 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
 
   if (!gameState) return null;
 
+  const canUndo = gameState.currentTurnDarts.length > 0 || Object.values(gameState.playerStates).some((p) => p.turnHistory.length > 0);
+
   if (gameState.isGameOver) {
     return (
       <GameResults
@@ -62,6 +64,8 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
         onNewGame={() => {
           resetGame();
         }}
+        onUndo={undoLastDart}
+        canUndo={canUndo}
         groupId={groupId}
       />
     );
@@ -174,7 +178,7 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
         disabled={gameState.currentTurnDarts.length >= 3}
         dartsThrown={gameState.currentTurnDarts.length}
         onUndo={undoLastDart}
-        canUndo={gameState.currentTurnDarts.length > 0 || Object.values(gameState.playerStates).some(p => p.turnHistory.length > 0)}
+        canUndo={canUndo}
       />
 
       {/* Turn History (Collapsible) */}
