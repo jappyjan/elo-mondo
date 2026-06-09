@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLeagueSummary } from './useAnalyticsData';
+import { buildLeagueSummary, mapThrowRowsToAnalyticsThrows } from './useAnalyticsData';
 import { PlayerMatchStats, ThrowAnalyticsSummary } from '@/lib/analytics/types';
 
 const players: PlayerMatchStats[] = [
@@ -73,5 +73,52 @@ describe('buildLeagueSummary', () => {
     expect(summary.hottestPlayer?.playerName).toBe('Alice');
     expect(summary.mostActive?.playerName).toBe('Bob');
     expect(summary.biggestEloGain).toEqual({ playerName: 'Alice', value: 16 });
+  });
+});
+
+describe('mapThrowRowsToAnalyticsThrows', () => {
+  it('maps game_throws rows joined directly to live_games for group filtering', () => {
+    const throws = mapThrowRowsToAnalyticsThrows([
+      {
+        id: 'throw-1',
+        game_id: 'game-1',
+        game_player_id: 'game-player-1',
+        turn_number: 2,
+        throw_index: 1,
+        segment: 20,
+        multiplier: 3,
+        score: 60,
+        label: 'T20',
+        created_at: '2026-06-08T12:00:00.000Z',
+        live_games: {
+          group_id: 'group-1',
+          status: 'completed',
+          started_at: '2026-06-08T11:00:00.000Z',
+          finished_at: '2026-06-08T12:30:00.000Z',
+        },
+        live_game_players: {
+          player_id: 'alice',
+          player_name: 'Alice',
+        },
+      },
+    ]);
+
+    expect(throws).toEqual([
+      {
+        id: 'throw-1',
+        gameId: 'game-1',
+        gamePlayerId: 'game-player-1',
+        turnNumber: 2,
+        throwIndex: 1,
+        segment: 20,
+        multiplier: 3,
+        score: 60,
+        label: 'T20',
+        createdAt: '2026-06-08T12:30:00.000Z',
+        playerId: 'alice',
+        playerName: 'Alice',
+        key: 'alice',
+      },
+    ]);
   });
 });

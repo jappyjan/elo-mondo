@@ -31,15 +31,15 @@ type ThrowRow = {
   score: number;
   label: string;
   created_at: string;
+  live_games: {
+    group_id: string;
+    status: string;
+    started_at: string;
+    finished_at: string | null;
+  };
   live_game_players: {
     player_id: string | null;
     player_name: string;
-    live_games: {
-      group_id: string;
-      status: string;
-      started_at: string;
-      finished_at: string | null;
-    };
   };
 };
 
@@ -61,6 +61,24 @@ export function buildLeagueSummary(matches: Array<unknown>, throws: ThrowAnalyti
     mostActive,
     biggestEloGain: biggestEloGainPlayer ? { playerName: biggestEloGainPlayer.playerName, value: biggestEloGainPlayer.bestEloGain } : null,
   };
+}
+
+export function mapThrowRowsToAnalyticsThrows(rows: ThrowRow[]): AnalyticsThrow[] {
+  return rows.map((dart) => ({
+    id: dart.id,
+    gameId: dart.game_id,
+    gamePlayerId: dart.game_player_id,
+    turnNumber: dart.turn_number,
+    throwIndex: dart.throw_index,
+    segment: dart.segment,
+    multiplier: dart.multiplier,
+    score: dart.score,
+    label: dart.label,
+    createdAt: dart.live_games.finished_at ?? dart.live_games.started_at ?? dart.created_at,
+    playerId: dart.live_game_players.player_id,
+    playerName: dart.live_game_players.player_name,
+    key: getPlayerKey(dart.live_game_players.player_id, dart.live_game_players.player_name),
+  }));
 }
 
 export function useAnalyticsData(groupId: string | undefined, timeScope: AnalyticsTimeScope) {
@@ -99,19 +117,19 @@ export function useAnalyticsData(groupId: string | undefined, timeScope: Analyti
           score,
           label,
           created_at,
+          live_games!inner (
+            group_id,
+            status,
+            started_at,
+            finished_at
+          ),
           live_game_players!inner (
             player_id,
-            player_name,
-            live_games!inner (
-              group_id,
-              status,
-              started_at,
-              finished_at
-            )
+            player_name
           )
         `)
-        .eq('live_game_players.live_games.group_id', groupId)
-        .eq('live_game_players.live_games.status', 'completed')
+        .eq('live_games.group_id', groupId)
+        .eq('live_games.status', 'completed')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -141,21 +159,7 @@ export function useAnalyticsData(groupId: string | undefined, timeScope: Analyti
 
     const scopedMatches = filterByScope(rawMatches, (match) => match.matchDate, timeScope);
 
-    const rawThrows: AnalyticsThrow[] = (throwsQuery.data ?? []).map((dart) => ({
-      id: dart.id,
-      gameId: dart.game_id,
-      gamePlayerId: dart.game_player_id,
-      turnNumber: dart.turn_number,
-      throwIndex: dart.throw_index,
-      segment: dart.segment,
-      multiplier: dart.multiplier,
-      score: dart.score,
-      label: dart.label,
-      createdAt: dart.live_game_players.live_games.finished_at ?? dart.live_game_players.live_games.started_at ?? dart.created_at,
-      playerId: dart.live_game_players.player_id,
-      playerName: dart.live_game_players.player_name,
-      key: getPlayerKey(dart.live_game_players.player_id, dart.live_game_players.player_name),
-    }));
+    const rawThrows = mapThrowRowsToAnalyticsThrows(throwsQuery.data ?? []);
 
     const scopedThrows = filterByScope(rawThrows, (dart) => dart.createdAt, timeScope);
     const playerMatchStats = buildPlayerMatchStats(scopedMatches);
