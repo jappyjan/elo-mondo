@@ -144,6 +144,21 @@ describe('analytics sections', () => {
     expect(html).toContain('Alice vs Bob');
   });
 
+  it('defaults head-to-head comparison to an existing record when the first two players have not met', () => {
+    const extraPlayers = [
+      { ...players[0], key: 'marco', playerId: 'marco', playerName: 'Marco' },
+      { ...players[1], key: 'marcus', playerId: 'marcus', playerName: 'Marcus' },
+      { ...players[0], key: 'jappy', playerId: 'jappy', playerName: 'Jappy' },
+      { ...players[1], key: 'jacob', playerId: 'jacob', playerName: 'Jacob' },
+    ];
+    const jappyRecord = { ...records[0], key: 'jappy', playerId: 'jappy', playerName: 'Jappy', opponentKey: 'jacob', opponentId: 'jacob', opponentName: 'Jacob', wins: 32, losses: 29, totalGames: 61 };
+
+    const html = renderToStaticMarkup(<HeadToHeadSection players={extraPlayers} records={[jappyRecord]} rivalryLeaders={[jappyRecord]} dominanceLeaders={[jappyRecord]} />);
+
+    expect(html).not.toContain('0-0');
+    expect(html).toContain('32-29');
+  });
+
   it('renders serious and fun dart stats', () => {
     const html = renderToStaticMarkup(<DartsAnalyticsSection darts={darts} />);
 

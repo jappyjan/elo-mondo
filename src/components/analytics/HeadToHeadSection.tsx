@@ -13,8 +13,10 @@ interface HeadToHeadSectionProps {
 }
 
 export function HeadToHeadSection({ players, records, rivalryLeaders, dominanceLeaders }: HeadToHeadSectionProps) {
-  const [playerKey, setPlayerKey] = useState(players[0]?.key ?? '');
-  const [opponentKey, setOpponentKey] = useState(players.find((player) => player.key !== playerKey)?.key ?? '');
+  const defaultPlayerKey = records[0]?.key ?? players[0]?.key ?? '';
+  const defaultOpponentKey = records[0]?.opponentKey ?? players.find((player) => player.key !== defaultPlayerKey)?.key ?? '';
+  const [playerKey, setPlayerKey] = useState(defaultPlayerKey);
+  const [opponentKey, setOpponentKey] = useState(defaultOpponentKey);
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.key === playerKey && record.opponentKey === opponentKey),
