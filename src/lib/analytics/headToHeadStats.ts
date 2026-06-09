@@ -60,13 +60,24 @@ export function buildHeadToHeadStats(matches: AnalyticsMatch[]): HeadToHeadResul
     ...record,
     winRate: record.totalGames > 0 ? record.wins / record.totalGames : 0,
   }));
+  const uniquePairs = (leaderboard: PairwiseRecord[]) => {
+    const seenPairs = new Set<string>();
+    return leaderboard.filter((record) => {
+      const pairKey = [record.key, record.opponentKey].sort().join('__');
+      if (seenPairs.has(pairKey)) return false;
+
+      seenPairs.add(pairKey);
+      return true;
+    });
+  };
 
   return {
     records: finalized,
-    rivalryLeaders: finalized.slice().sort((a, b) => b.totalGames - a.totalGames || b.wins - a.wins).slice(0, 10),
-    dominanceLeaders: finalized
-      .filter((record) => record.totalGames >= 1)
-      .sort((a, b) => b.winRate - a.winRate || b.totalGames - a.totalGames)
-      .slice(0, 10),
+    rivalryLeaders: uniquePairs(finalized.slice().sort((a, b) => b.totalGames - a.totalGames || b.wins - a.wins)).slice(0, 10),
+    dominanceLeaders: uniquePairs(
+      finalized
+        .filter((record) => record.totalGames >= 1)
+        .sort((a, b) => b.winRate - a.winRate || b.totalGames - a.totalGames)
+    ).slice(0, 10),
   };
 }

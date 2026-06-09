@@ -50,4 +50,23 @@ describe('buildHeadToHeadStats', () => {
     expect(result.rivalryLeaders[0].totalGames).toBe(2);
     expect(result.dominanceLeaders.some((record) => record.key === 'alice' && record.opponentKey === 'cara')).toBe(true);
   });
+
+  it('keeps directional records but de-duplicates swapped pairs in leaderboards', () => {
+    const result = buildHeadToHeadStats(matches);
+    const directionalPair = result.records.filter((record) => {
+      const keys = [record.key, record.opponentKey].sort().join('__');
+      return keys === 'alice__bob';
+    });
+    const rivalryPair = result.rivalryLeaders.filter((record) => {
+      const keys = [record.key, record.opponentKey].sort().join('__');
+      return keys === 'alice__bob';
+    });
+
+    expect(directionalPair).toHaveLength(2);
+    expect(rivalryPair).toHaveLength(1);
+    expect(result.dominanceLeaders.every((record, index, records) => {
+      const pairKey = [record.key, record.opponentKey].sort().join('__');
+      return records.findIndex((candidate) => [candidate.key, candidate.opponentKey].sort().join('__') === pairKey) === index;
+    })).toBe(true);
+  });
 });

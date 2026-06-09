@@ -74,7 +74,7 @@ export function mapThrowRowsToAnalyticsThrows(rows: ThrowRow[]): AnalyticsThrow[
     multiplier: dart.multiplier,
     score: dart.score,
     label: dart.label,
-    createdAt: dart.live_games.finished_at ?? dart.live_games.started_at ?? dart.created_at,
+    createdAt: dart.created_at,
     playerId: dart.live_game_players.player_id,
     playerName: dart.live_game_players.player_name,
     key: getPlayerKey(dart.live_game_players.player_id, dart.live_game_players.player_name),

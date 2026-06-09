@@ -93,8 +93,8 @@ describe('mapThrowRowsToAnalyticsThrows', () => {
         live_games: {
           group_id: 'group-1',
           status: 'completed',
-          started_at: '2026-06-08T11:00:00.000Z',
-          finished_at: '2026-06-08T12:30:00.000Z',
+          started_at: '2026-01-01T11:00:00.000Z',
+          finished_at: '2026-01-01T12:30:00.000Z',
         },
         live_game_players: {
           player_id: 'alice',
@@ -114,7 +114,7 @@ describe('mapThrowRowsToAnalyticsThrows', () => {
         multiplier: 3,
         score: 60,
         label: 'T20',
-        createdAt: '2026-06-08T12:30:00.000Z',
+        createdAt: '2026-06-08T12:00:00.000Z',
         playerId: 'alice',
         playerName: 'Alice',
         key: 'alice',
