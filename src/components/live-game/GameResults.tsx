@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlayerGameState } from '@/types/liveGame';
-import { Trophy, Save, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Save, RotateCcw, Home, Undo2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRecordMultiPlayerMatch } from '@/hooks/useRecordMultiPlayerMatch';
 import { useState } from 'react';
@@ -11,10 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 interface GameResultsProps {
   playerStates: Record<string, PlayerGameState>;
   onNewGame: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
   groupId: string;
 }
 
-export function GameResults({ playerStates, onNewGame, groupId }: GameResultsProps) {
+export function GameResults({ playerStates, onNewGame, onUndo, canUndo, groupId }: GameResultsProps) {
   const navigate = useNavigate();
   const recordMatch = useRecordMultiPlayerMatch(groupId);
   const [isSaved, setIsSaved] = useState(false);
@@ -66,45 +68,17 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
           if (cachedId) {
             playerId = cachedId;
           } else {
-            const { data: existingPlayers, error: existingError } = await supabase
-              .from('players')
-              .select('id')
-              .eq('name', normalizedName)
-              .limit(1);
+            const { data: resolvedPlayerId, error } = await supabase.rpc('ensure_group_temp_player', {
+              _group_id: groupId,
+              _player_name: normalizedName,
+            });
 
-            if (existingError) {
-              throw new Error(`Failed to look up player ${normalizedName}: ${existingError.message}`);
+            if (error || !resolvedPlayerId) {
+              throw new Error(`Failed to add player ${normalizedName} to group: ${error?.message || 'Unknown error'}`);
             }
 
-            if (existingPlayers && existingPlayers.length > 0) {
-              playerId = existingPlayers[0].id;
-            } else {
-              const { data: newPlayer, error } = await supabase
-                .from('players')
-                .insert({ name: normalizedName })
-                .select()
-                .single();
-
-              if (error) {
-                throw new Error(`Failed to create player ${normalizedName}: ${error.message}`);
-              }
-
-              playerId = newPlayer.id;
-            }
-
+            playerId = resolvedPlayerId;
             tempPlayerIdCache.set(cacheKey, playerId);
-          }
-
-          // Also add the new player to the group
-          const { error: memberError } = await supabase
-            .from('group_members')
-            .upsert(
-              { group_id: groupId, player_id: playerId, role: 'member' },
-              { onConflict: 'group_id,player_id', ignoreDuplicates: true },
-            );
-
-          if (memberError) {
-            throw new Error(`Failed to add player ${normalizedName} to group: ${memberError.message}`);
           }
         }
 
@@ -189,6 +163,13 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
             <div className="text-center text-sm text-muted-foreground py-2">
               Need at least 2 players to save ELO
             </div>
+          )}
+
+          {!isSaved && !isSaving && !recordMatch.isPending && canUndo && (
+            <Button variant="outline" onClick={onUndo} className="w-full" size="lg">
+              <Undo2 className="h-4 w-4 mr-2" />
+              Undo Last Throw
+            </Button>
           )}
 
           <div className="grid grid-cols-2 gap-2">
