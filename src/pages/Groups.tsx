@@ -25,6 +25,15 @@ interface GroupWithMembership {
   role: "admin" | "member";
 }
 
+interface MembershipRow {
+  role: "admin" | "member";
+  groups: {
+    id: string;
+    name: string;
+    created_at: string;
+  };
+}
+
 export default function Groups() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -62,7 +71,7 @@ export default function Groups() {
 
       if (error) throw error;
 
-      return (memberships || []).map((m: any) => ({
+      return ((memberships || []) as MembershipRow[]).map((m) => ({
         ...m.groups,
         role: m.role,
       })) as GroupWithMembership[];
@@ -84,7 +93,7 @@ export default function Groups() {
       setNewGroupName("");
       navigate(`/${data.id}`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
@@ -103,7 +112,7 @@ export default function Groups() {
       setInviteCode("");
       navigate(`/${groupId}`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });

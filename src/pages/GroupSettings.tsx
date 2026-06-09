@@ -21,6 +21,16 @@ interface GroupMemberWithPlayer {
   };
 }
 
+interface GroupMemberRow {
+  id: string;
+  role: 'admin' | 'member';
+  joined_at: string;
+  players: {
+    id: string;
+    name: string;
+  };
+}
+
 export default function GroupSettings() {
   const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
@@ -79,7 +89,7 @@ export default function GroupSettings() {
         `)
         .eq('group_id', groupId);
       if (error) throw error;
-      return (data || []).map((m: any) => ({
+      return ((data || []) as GroupMemberRow[]).map((m) => ({
         ...m,
         player: m.players
       })) as GroupMemberWithPlayer[];
@@ -132,7 +142,7 @@ export default function GroupSettings() {
       setInviteEmail('');
       setInviteDialogOpen(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error.message.includes('duplicate') 
         ? 'This email has already been invited'
         : error.message;

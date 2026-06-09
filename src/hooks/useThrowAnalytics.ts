@@ -59,6 +59,23 @@ export interface ThrowAnalytics {
   };
 }
 
+interface ThrowAnalyticsRow {
+  id: string;
+  game_id: string;
+  game_player_id: string;
+  turn_number: number;
+  throw_index: number;
+  segment: number;
+  multiplier: number;
+  score: number;
+  label: string;
+  created_at: string;
+  live_game_players: {
+    player_id: string | null;
+    player_name: string;
+  };
+}
+
 function computeTurnScores(throws: ThrowData[]): Map<string, { playerId: string | null; playerName: string; turnNumber: number; gameId: string; scores: number[]; createdAt: string }> {
   const turns = new Map<string, { playerId: string | null; playerName: string; turnNumber: number; gameId: string; scores: number[]; createdAt: string }>();
   
@@ -371,7 +388,7 @@ export function useThrowAnalytics(groupId: string | undefined) {
       if (error) throw error;
       
       // Transform data
-      const throwData: ThrowData[] = (throws || []).map((t: any) => ({
+      const throwData: ThrowData[] = ((throws || []) as ThrowAnalyticsRow[]).map((t) => ({
         id: t.id,
         game_id: t.game_id,
         game_player_id: t.game_player_id,
@@ -431,4 +448,3 @@ export function useThrowAnalytics(groupId: string | undefined) {
     enabled: !!groupId,
   });
 }
-

@@ -44,6 +44,10 @@ interface Match {
   participants: MatchParticipant[];
 }
 
+interface GroupMemberRow {
+  player_id: string;
+}
+
 interface PlayerEloState {
   elo: number;
   lastMatchDate: Date | null;
@@ -220,7 +224,7 @@ function processMatch(
       });
     }
 
-    let remainder = -sumRoundedChanges;
+    const remainder = -sumRoundedChanges;
     if (remainder !== 0 && provisionalChanges.length > 0) {
       const ordered = provisionalChanges.slice().sort((a, b) => {
         if (remainder > 0) {
@@ -645,7 +649,7 @@ serve(async (req) => {
         throw membersError;
       }
       
-      const playerIds = groupMembers.map((m: any) => m.player_id);
+      const playerIds = ((groupMembers ?? []) as GroupMemberRow[]).map((m) => m.player_id);
       if (playerIds.length > 0) {
         playersQuery = playersQuery.in("id", playerIds);
       } else {
@@ -695,16 +699,18 @@ serve(async (req) => {
     }
 
     // Extract available years from matches
-    const availableYears = [...new Set(allMatches.map((m: any) => new Date(m.created_at).getFullYear()))].sort(
+    const typedMatches = (allMatches ?? []) as Match[];
+
+    const availableYears = [...new Set(typedMatches.map((m) => new Date(m.created_at).getFullYear()))].sort(
       (a, b) => b - a,
     );
 
     // Filter matches by year if specified
     const matches = selectedYear
-      ? allMatches.filter((m: any) => new Date(m.created_at).getFullYear() === selectedYear)
-      : allMatches;
+      ? typedMatches.filter((m) => new Date(m.created_at).getFullYear() === selectedYear)
+      : typedMatches;
 
-    console.log(`Found ${allMatches.length} total matches, ${matches.length} in selected period`);
+    console.log(`Found ${typedMatches.length} total matches, ${matches.length} in selected period`);
 
     // Initialize player states and track year-specific stats
     const playerStates = new Map<string, PlayerEloState>();
@@ -743,7 +749,7 @@ serve(async (req) => {
         playerYearStats.set(match.loser_id, loserStats);
       } else {
         // Multi-player match
-        const ranks = match.participants.map((p: any) => p.rank);
+        const ranks = match.participants.map((p) => p.rank);
         const minRank = Math.min(...ranks);
         const maxRank = Math.max(...ranks);
 

@@ -1,145 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useCalculatedPlayers } from '@/hooks/usePlayers';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BarChart3, Loader2, Target, User, Users } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart3, User, Users, TrendingUp, Target, Loader2 } from 'lucide-react';
-import AnalyticsOverview from '@/components/analytics/AnalyticsOverview';
-import IndividualPerformance from '@/components/analytics/IndividualPerformance';
-import HeadToHead from '@/components/analytics/HeadToHead';
-import TrendAnalysis from '@/components/analytics/TrendAnalysis';
-import DartsAnalytics from '@/components/analytics/DartsAnalytics';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAnalyticsData } from '@/hooks/useAnalyticsData';
+import { AnalyticsTimeScope, TimeScopeKind } from '@/lib/analytics/types';
+import { scopeLabels } from '@/lib/analytics/scopeLabels';
+import { AnalyticsOverviewSection } from '@/components/analytics/AnalyticsOverviewSection';
+import { PlayerAnalyticsSection } from '@/components/analytics/PlayerAnalyticsSection';
+import { HeadToHeadSection } from '@/components/analytics/HeadToHeadSection';
+import { DartsAnalyticsSection } from '@/components/analytics/DartsAnalyticsSection';
+
+const currentYear = new Date().getFullYear();
 
 const Analytics = () => {
   const { groupId } = useParams<{ groupId: string }>();
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  
-  // Fetch data - will refetch when selectedYear changes
-  const { data: eloData, isLoading, isFetching, error } = useCalculatedPlayers(
-    groupId,
-    false,
-    selectedYear,
-    true
-  );
+  const [scopeKind, setScopeKind] = useState<TimeScopeKind>('30d');
+  const [year, setYear] = useState(currentYear);
 
-  // Set default year when data loads for the first time
+  const timeScope: AnalyticsTimeScope = useMemo(() => ({ kind: scopeKind, year }), [scopeKind, year]);
+  const { data, isLoading, isFetching, error } = useAnalyticsData(groupId, timeScope);
+
   useEffect(() => {
-    if (eloData?.availableYears?.length && selectedYear === null) {
-      setSelectedYear(eloData.availableYears[0]);
+    if (data.availableYears.length > 0 && !data.availableYears.includes(year)) {
+      setYear(data.availableYears.includes(currentYear) ? currentYear : data.availableYears[0]);
     }
-  }, [eloData?.availableYears, selectedYear]);
+  }, [data.availableYears, year]);
 
-  const availableYears = eloData?.availableYears || [];
-  const players = eloData?.players || [];
-  const matchHistory = eloData?.matchHistory || [];
-
-  // Show loading only on initial load (no data yet)
-  if (isLoading && players.length === 0 && matchHistory.length === 0) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (error && !eloData) {
+  if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-destructive">
-          Error loading analytics data
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center text-destructive">
+          Error loading analytics data: {(error as Error).message}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="container mx-auto space-y-6 px-4 py-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground">Deep dive into performance data</p>
+          <p className="text-muted-foreground">Recent form, rivalries, player profiles, and dart-level patterns.</p>
         </div>
-        
-        {/* Year Filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <Select
-            value={selectedYear?.toString() || ''}
-            onValueChange={(value) => setSelectedYear(parseInt(value))}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Select year" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
+          <Select value={scopeKind} onValueChange={(value) => setScopeKind(value as TimeScopeKind)}>
+            <SelectTrigger className="w-full sm:w-[170px]"><SelectValue /></SelectTrigger>
+            <SelectContent>{Object.entries(scopeLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
           </Select>
+          {scopeKind === 'year' && (
+            <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
+              <SelectTrigger className="w-full sm:w-[120px]"><SelectValue /></SelectTrigger>
+              <SelectContent>{data.availableYears.map((availableYear) => <SelectItem key={availableYear} value={String(availableYear)}>{availableYear}</SelectItem>)}</SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" className="gap-2">
-            <BarChart3 className="h-4 w-4 hidden sm:inline" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="darts" className="gap-2">
-            <Target className="h-4 w-4 hidden sm:inline" />
-            Darts
-          </TabsTrigger>
-          <TabsTrigger value="individual" className="gap-2">
-            <User className="h-4 w-4 hidden sm:inline" />
-            Individual
-          </TabsTrigger>
-          <TabsTrigger value="h2h" className="gap-2">
-            <Users className="h-4 w-4 hidden sm:inline" />
-            Head-to-Head
-          </TabsTrigger>
-          <TabsTrigger value="trends" className="gap-2">
-            <TrendingUp className="h-4 w-4 hidden sm:inline" />
-            Trends
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+          <TabsTrigger value="overview" className="gap-2"><BarChart3 className="hidden h-4 w-4 sm:inline" />Overview</TabsTrigger>
+          <TabsTrigger value="players" className="gap-2"><User className="hidden h-4 w-4 sm:inline" />Players</TabsTrigger>
+          <TabsTrigger value="h2h" className="gap-2"><Users className="hidden h-4 w-4 sm:inline" />Head-to-Head</TabsTrigger>
+          <TabsTrigger value="darts" className="gap-2"><Target className="hidden h-4 w-4 sm:inline" />Darts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
-          <AnalyticsOverview 
-            players={players} 
-            matchHistory={matchHistory}
-            selectedYear={selectedYear}
-          />
-        </TabsContent>
-
-        <TabsContent value="darts">
-          <DartsAnalytics />
-        </TabsContent>
-
-        <TabsContent value="individual">
-          <IndividualPerformance 
-            players={players} 
-            matchHistory={matchHistory}
-          />
-        </TabsContent>
-
-        <TabsContent value="h2h">
-          <HeadToHead 
-            players={players} 
-            matchHistory={matchHistory}
-          />
-        </TabsContent>
-
-        <TabsContent value="trends">
-          <TrendAnalysis 
-            players={players} 
-            matchHistory={matchHistory}
-            selectedYear={selectedYear}
-          />
-        </TabsContent>
+        <TabsContent value="overview"><AnalyticsOverviewSection league={data.league} players={data.playerMatchStats} darts={data.darts} /></TabsContent>
+        <TabsContent value="players"><PlayerAnalyticsSection players={data.playerMatchStats} darts={data.darts} /></TabsContent>
+        <TabsContent value="h2h"><HeadToHeadSection players={data.playerMatchStats} records={data.headToHead.records} rivalryLeaders={data.headToHead.rivalryLeaders} dominanceLeaders={data.headToHead.dominanceLeaders} /></TabsContent>
+        <TabsContent value="darts"><DartsAnalyticsSection darts={data.darts} /></TabsContent>
       </Tabs>
     </div>
   );

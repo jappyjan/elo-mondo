@@ -9,6 +9,14 @@ import { MatchHistoryEntry, CalculatedPlayer } from '@/types/darts';
 
 type RangeOption = 'all' | 'last15' | 'lastMonth' | 'last3Months' | 'lastYear';
 
+type ChartPoint = { match: number } & Record<string, number>;
+type ChartConfig = Record<string, { label: string; color: string }>;
+type TooltipEntry = {
+  dataKey?: string | number;
+  color?: string;
+  value?: string | number;
+};
+
 function getPastelColor(index: number): string {
   const pastelColors = [
     "#AEC6CF", "#FFB347", "#B39EB5", "#77DD77", "#FF6961",
@@ -85,14 +93,14 @@ export function EloProgressionChart({ matchHistory, players, year }: EloProgress
 
     // Starting point uses the global index
     const startMatchNumber = firstFilteredGlobalIndex > 0 ? firstFilteredGlobalIndex : 0;
-    const data: any[] = [{ match: startMatchNumber, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
+    const data: ChartPoint[] = [{ match: startMatchNumber, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
 
     filteredMatchHistory.forEach((entry, index) => {
       entry.results.forEach(r => {
         playerElos[r.playerId] = r.eloAfter;
       });
       
-      const dataPoint: any = { match: startMatchNumber + index + 1 };
+      const dataPoint: ChartPoint = { match: startMatchNumber + index + 1 };
       Object.entries(playerElos).forEach(([id, elo]) => {
         const name = playerNames[id];
         if (name) dataPoint[name] = Math.round(elo);
@@ -104,7 +112,7 @@ export function EloProgressionChart({ matchHistory, players, year }: EloProgress
   }, [filteredMatchHistory, players, matchHistory]);
 
   const chartConfig = useMemo(() => {
-    const config: any = {};
+    const config: ChartConfig = {};
     players.forEach((player, index) => {
       config[player.playerName] = {
         label: player.playerName,
@@ -167,7 +175,7 @@ export function EloProgressionChart({ matchHistory, players, year }: EloProgress
                     <div className="rounded-lg border bg-background p-2 shadow-sm">
                       <div className="font-medium mb-1">Match #{matchNum}</div>
                       <div className="grid gap-1">
-                        {payload.map((entry: any) => (
+                        {(payload as TooltipEntry[]).map((entry) => (
                           <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-sm">
                             <div className="flex items-center gap-1.5">
                               <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
