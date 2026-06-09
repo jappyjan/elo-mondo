@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { AnalyticsMatch, AnalyticsThrow, AnalyticsTimeScope, LeagueAnalyticsSummary, PlayerMatchStats, ThrowAnalyticsSummary } from '@/lib/analytics/types';
-import { filterByScope } from '@/lib/analytics/timeScope';
+import { filterByScope, getScopeEnd, getScopeStart } from '@/lib/analytics/timeScope';
 import { getPlayerKey, buildPlayerMatchStats } from '@/lib/analytics/matchStats';
 import { buildHeadToHeadStats } from '@/lib/analytics/headToHeadStats';
 import { buildThrowAnalytics } from '@/lib/analytics/throwStats';
@@ -43,6 +43,8 @@ type ThrowRow = {
   };
 };
 
+const THROW_PAGE_SIZE = 1000;
+
 export function buildLeagueSummary(matches: Array<unknown>, throws: ThrowAnalyticsSummary, playerStats: PlayerMatchStats[]): LeagueAnalyticsSummary {
   const activePlayers = playerStats.filter((player) => player.matches > 0);
   const mostImproved = activePlayers[0] ?? null;
@@ -81,6 +83,13 @@ export function mapThrowRowsToAnalyticsThrows(rows: ThrowRow[]): AnalyticsThrow[
   }));
 }
 
+export function getAnalyticsThrowDateRange(scope: AnalyticsTimeScope): { start: string | null; end: string | null } {
+  return {
+    start: getScopeStart(scope)?.toISOString() ?? null,
+    end: getScopeEnd(scope)?.toISOString() ?? null,
+  };
+}
+
 export function useAnalyticsData(groupId: string | undefined, timeScope: AnalyticsTimeScope) {
   const yearForElo = timeScope.kind === 'year' ? timeScope.year ?? new Date().getFullYear() : null;
   const eloQuery = useCalculatedPlayers(groupId, false, yearForElo, true);
@@ -101,39 +110,53 @@ export function useAnalyticsData(groupId: string | undefined, timeScope: Analyti
   });
 
   const throwsQuery = useQuery({
-    queryKey: ['analytics-throws', groupId],
+    queryKey: ['analytics-throws', groupId, timeScope.kind, timeScope.year, timeScope.now?.toISOString()],
     enabled: !!groupId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_throws')
-        .select(`
-          id,
-          game_id,
-          game_player_id,
-          turn_number,
-          throw_index,
-          segment,
-          multiplier,
-          score,
-          label,
-          created_at,
-          live_games!inner (
-            group_id,
-            status,
-            started_at,
-            finished_at
-          ),
-          live_game_players!inner (
-            player_id,
-            player_name
-          )
-        `)
-        .eq('live_games.group_id', groupId)
-        .eq('live_games.status', 'completed')
-        .order('created_at', { ascending: true });
+      const range = getAnalyticsThrowDateRange(timeScope);
+      const rows: ThrowRow[] = [];
 
-      if (error) throw error;
-      return (data ?? []) as unknown as ThrowRow[];
+      for (let from = 0; ; from += THROW_PAGE_SIZE) {
+        let query = supabase
+          .from('game_throws')
+          .select(`
+            id,
+            game_id,
+            game_player_id,
+            turn_number,
+            throw_index,
+            segment,
+            multiplier,
+            score,
+            label,
+            created_at,
+            live_games!inner (
+              group_id,
+              status,
+              started_at,
+              finished_at
+            ),
+            live_game_players!inner (
+              player_id,
+              player_name
+            )
+          `)
+          .eq('live_games.group_id', groupId)
+          .eq('live_games.status', 'completed')
+          .order('created_at', { ascending: true });
+
+        if (range.start) query = query.gte('created_at', range.start);
+        if (range.end) query = query.lte('created_at', range.end);
+
+        const { data, error } = await query.range(from, from + THROW_PAGE_SIZE - 1);
+
+        if (error) throw error;
+        const page = (data ?? []) as unknown as ThrowRow[];
+        rows.push(...page);
+        if (page.length < THROW_PAGE_SIZE) break;
+      }
+
+      return rows;
     },
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLeagueSummary, mapThrowRowsToAnalyticsThrows } from './useAnalyticsData';
+import { buildLeagueSummary, getAnalyticsThrowDateRange, mapThrowRowsToAnalyticsThrows } from './useAnalyticsData';
 import { PlayerMatchStats, ThrowAnalyticsSummary } from '@/lib/analytics/types';
 
 const players: PlayerMatchStats[] = [
@@ -120,5 +120,19 @@ describe('mapThrowRowsToAnalyticsThrows', () => {
         key: 'alice',
       },
     ]);
+  });
+});
+
+describe('getAnalyticsThrowDateRange', () => {
+  it('builds server-side created_at bounds for recent throw queries', () => {
+    expect(getAnalyticsThrowDateRange({ kind: '30d', now: new Date('2026-06-09T12:00:00.000Z') })).toEqual({
+      start: '2026-05-10T12:00:00.000Z',
+      end: null,
+    });
+    expect(getAnalyticsThrowDateRange({ kind: 'year', year: 2026 })).toEqual({
+      start: '2026-01-01T00:00:00.000Z',
+      end: '2026-12-31T23:59:59.999Z',
+    });
+    expect(getAnalyticsThrowDateRange({ kind: 'all' })).toEqual({ start: null, end: null });
   });
 });
