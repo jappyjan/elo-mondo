@@ -230,7 +230,7 @@ const DartsAnalytics = () => {
     const months = Array.from(allMonths).sort();
     
     return months.map(month => {
-      const point: Record<string, any> = { month: formatMonth(month) };
+      const point: { month: string; [playerName: string]: string | number | null } = { month: formatMonth(month) };
       analytics.playerStats.slice(0, 5).forEach(p => {
         const monthData = p.turnsOverTime.find(t => t.month === month);
         point[p.playerName] = monthData?.avgScore || null;
@@ -848,8 +848,8 @@ const DartsAnalytics = () => {
                               border: '1px solid hsl(var(--border))',
                               borderRadius: '8px',
                             }}
-                            formatter={(value: number, name: string, props: any) => [
-                              `${value} (${props.payload.count} turns)`,
+                            formatter={(value: number, _name: string, props: { payload?: { count?: number } }) => [
+                              `${value} (${props.payload?.count ?? 0} turns)`,
                               'Avg Score'
                             ]}
                           />
@@ -892,4 +892,3 @@ function formatMonth(month: string): string {
 }
 
 export default DartsAnalytics;
-

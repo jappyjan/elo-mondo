@@ -65,7 +65,7 @@ const TrendAnalysis = ({ players, matchHistory, selectedYear }: TrendAnalysisPro
         });
       });
 
-      const data: Record<string, any> = {
+      const data: { month: string; totalMatches: number; [playerId: string]: string | number | null } = {
         month: format(month, 'MMM yyyy'),
         totalMatches: matchesInMonth.length,
       };

@@ -117,10 +117,11 @@ export function GameResults({ playerStates, onNewGame, groupId }: GameResultsPro
       // Now record the match with all players (including newly created ones)
       await recordMatch.mutateAsync({ playerRankings });
       setIsSaved(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save match';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save match',
+        description: message,
         variant: 'destructive',
       });
     } finally {

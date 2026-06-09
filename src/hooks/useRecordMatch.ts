@@ -47,7 +47,7 @@ export function useRecordMatch(groupId?: string) {
         description: `${data.winner.name} defeated ${data.loser.name}`,
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to record match",

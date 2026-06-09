@@ -23,7 +23,9 @@ const loadSavedRules = (): SavedRules => {
     if (stored) {
       return JSON.parse(stored);
     }
-  } catch {}
+  } catch {
+    return { gameType: '501', startRule: 'straight-in', endRule: 'double-out' };
+  }
   return { gameType: '501', startRule: 'straight-in', endRule: 'double-out' };
 };
 

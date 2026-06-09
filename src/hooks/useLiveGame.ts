@@ -533,7 +533,7 @@ export function useLiveGame(groupId: string) {
       }
 
       // Handle finish
-      let updatedFinishedPlayerIds = [...gameState.finishedPlayerIds];
+      const updatedFinishedPlayerIds = [...gameState.finishedPlayerIds];
       let updatedNextRank = gameState.nextRank;
       let isGameOver = gameState.isGameOver;
       let finishedAt = gameState.finishedAt;

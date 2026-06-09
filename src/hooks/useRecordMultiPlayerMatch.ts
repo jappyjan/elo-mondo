@@ -81,7 +81,7 @@ export function useRecordMultiPlayerMatch(groupId: string) {
         description: `${winnerName} won the ${totalPlayers}-player match!`,
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to record multi-player match",

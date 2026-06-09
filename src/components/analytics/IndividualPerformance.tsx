@@ -297,8 +297,8 @@ const IndividualPerformance = ({ players, matchHistory }: IndividualPerformanceP
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
-                        formatter={(value: number, name: string, props: any) => [
-                          `${value} (${props.payload.change > 0 ? '+' : ''}${props.payload.change})`,
+                        formatter={(value: number, _name: string, props: { payload?: { change?: number } }) => [
+                          `${value} (${(props.payload?.change ?? 0) > 0 ? '+' : ''}${props.payload?.change ?? 0})`,
                           'Elo'
                         ]}
                         labelFormatter={(label) => `Match ${label}`}
