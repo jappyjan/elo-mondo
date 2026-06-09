@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { BarChart3, Loader2, Target, User, Users } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 import { AnalyticsTimeScope, TimeScopeKind } from '@/lib/analytics/types';
 import { scopeLabels } from '@/lib/analytics/scopeLabels';
+import { AnalyticsSearchUpdate, buildAnalyticsSearch, parseAnalyticsSearch } from '@/lib/analytics/urlState';
 import { AnalyticsOverviewSection } from '@/components/analytics/AnalyticsOverviewSection';
 import { PlayerAnalyticsSection } from '@/components/analytics/PlayerAnalyticsSection';
 import { HeadToHeadSection } from '@/components/analytics/HeadToHeadSection';
@@ -15,17 +16,31 @@ const currentYear = new Date().getFullYear();
 
 const Analytics = () => {
   const { groupId } = useParams<{ groupId: string }>();
-  const [scopeKind, setScopeKind] = useState<TimeScopeKind>('30d');
-  const [year, setYear] = useState(currentYear);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const timeScope: AnalyticsTimeScope = useMemo(() => ({ kind: scopeKind, year }), [scopeKind, year]);
+  const requestedUrlState = useMemo(
+    () => parseAnalyticsSearch(searchParams, [], currentYear),
+    [searchParams]
+  );
+  const timeScope: AnalyticsTimeScope = useMemo(
+    () => ({ kind: requestedUrlState.scopeKind, year: requestedUrlState.year }),
+    [requestedUrlState.scopeKind, requestedUrlState.year]
+  );
   const { data, isLoading, isFetching, error } = useAnalyticsData(groupId, timeScope);
+  const urlState = useMemo(
+    () => parseAnalyticsSearch(searchParams, data.availableYears, currentYear),
+    [searchParams, data.availableYears]
+  );
+
+  const updateSearch = useCallback((update: AnalyticsSearchUpdate) => {
+    setSearchParams((prev) => buildAnalyticsSearch(prev, update), { replace: true });
+  }, [setSearchParams]);
 
   useEffect(() => {
-    if (data.availableYears.length > 0 && !data.availableYears.includes(year)) {
-      setYear(data.availableYears.includes(currentYear) ? currentYear : data.availableYears[0]);
+    if (data.availableYears.length > 0 && urlState.scopeKind === 'year' && urlState.year !== requestedUrlState.year) {
+      updateSearch({ year: urlState.year });
     }
-  }, [data.availableYears, year]);
+  }, [data.availableYears.length, requestedUrlState.year, updateSearch, urlState.scopeKind, urlState.year]);
 
   if (isLoading) {
     return (
@@ -54,12 +69,12 @@ const Analytics = () => {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <Select value={scopeKind} onValueChange={(value) => setScopeKind(value as TimeScopeKind)}>
+          <Select value={urlState.scopeKind} onValueChange={(value) => updateSearch({ scopeKind: value as TimeScopeKind })}>
             <SelectTrigger className="w-full sm:w-[170px]"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(scopeLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
           </Select>
-          {scopeKind === 'year' && (
-            <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
+          {urlState.scopeKind === 'year' && (
+            <Select value={String(urlState.year)} onValueChange={(value) => updateSearch({ year: Number(value) })}>
               <SelectTrigger className="w-full sm:w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>{data.availableYears.map((availableYear) => <SelectItem key={availableYear} value={String(availableYear)}>{availableYear}</SelectItem>)}</SelectContent>
             </Select>
@@ -67,7 +82,7 @@ const Analytics = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={urlState.tab} onValueChange={(value) => updateSearch({ tab: value as AnalyticsSearchUpdate['tab'] })} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 lg:w-auto">
           <TabsTrigger value="overview" className="gap-2"><BarChart3 className="hidden h-4 w-4 sm:inline" />Overview</TabsTrigger>
           <TabsTrigger value="players" className="gap-2"><User className="hidden h-4 w-4 sm:inline" />Players</TabsTrigger>
@@ -75,9 +90,9 @@ const Analytics = () => {
           <TabsTrigger value="darts" className="gap-2"><Target className="hidden h-4 w-4 sm:inline" />Darts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview"><AnalyticsOverviewSection league={data.league} players={data.playerMatchStats} darts={data.darts} /></TabsContent>
-        <TabsContent value="players"><PlayerAnalyticsSection players={data.playerMatchStats} darts={data.darts} /></TabsContent>
-        <TabsContent value="h2h"><HeadToHeadSection players={data.playerMatchStats} records={data.headToHead.records} rivalryLeaders={data.headToHead.rivalryLeaders} dominanceLeaders={data.headToHead.dominanceLeaders} /></TabsContent>
+        <TabsContent value="overview"><AnalyticsOverviewSection league={data.league} players={data.playerMatchStats} darts={data.darts} rivalryLeaders={data.headToHead.rivalryLeaders} /></TabsContent>
+        <TabsContent value="players"><PlayerAnalyticsSection players={data.playerMatchStats} darts={data.darts} selectedPlayerKey={urlState.playerKey} onSelectedPlayerKeyChange={(playerKey) => updateSearch({ playerKey })} /></TabsContent>
+        <TabsContent value="h2h"><HeadToHeadSection players={data.playerMatchStats} records={data.headToHead.records} rivalryLeaders={data.headToHead.rivalryLeaders} dominanceLeaders={data.headToHead.dominanceLeaders} selectedPlayerKey={urlState.playerKey} selectedOpponentKey={urlState.opponentKey} onSelectedPairChange={(selection) => updateSearch(selection)} /></TabsContent>
         <TabsContent value="darts"><DartsAnalyticsSection darts={data.darts} /></TabsContent>
       </Tabs>
     </div>
