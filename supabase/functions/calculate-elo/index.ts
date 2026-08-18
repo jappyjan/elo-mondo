@@ -623,8 +623,9 @@ serve(async (req) => {
     } catch {
       // No body or invalid JSON, use defaults
     }
-    // Decay should not be applied during match progression unless explicitly requested.
-    const applyDecayForMatches = applyDecayInMatches ?? false;
+    // Decay is not cosmetic: an idle player's decayed rating is what enters their next match,
+    // so it is locked in permanently. Follows the decay toggle unless overridden explicitly.
+    const applyDecayForMatches = applyDecayInMatches ?? applyDecayForOutput;
 
     console.log(
       `Starting Elo calculation (decay in matches: ${applyDecayForMatches}, decay on output: ${applyDecayForOutput}, year: ${selectedYear}, include provisional: ${includeProvisional}, groupId: ${groupId || 'all'})...`,
@@ -660,6 +661,7 @@ serve(async (req) => {
             matchHistory: [],
             calculatedAt: requestReceivedAt.toISOString(),
             decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
+            decayStartDay: DECAY_START_DAY,
             decayEnabled: applyDecayForOutput,
             availableYears: [],
             selectedYear: null,
@@ -864,6 +866,7 @@ serve(async (req) => {
         matchHistory,
         calculatedAt: now.toISOString(),
         decayHalfLifeDays: DECAY_HALF_LIFE_DAYS,
+        decayStartDay: DECAY_START_DAY,
         decayEnabled: applyDecayForOutput,
         decayAppliedInMatches: applyDecayForMatches,
         availableYears,
