@@ -6,10 +6,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { MatchHistoryEntry, CalculatedPlayer } from '@/types/darts';
+import { buildEloProgressionSeries, EloRangeOption } from '@/lib/eloProgression';
 
-type RangeOption = 'all' | 'last15' | 'lastMonth' | 'last3Months' | 'lastYear';
+type RangeOption = EloRangeOption;
 
-type ChartPoint = { match: number } & Record<string, number>;
 type ChartConfig = Record<string, { label: string; color: string }>;
 type TooltipEntry = {
   dataKey?: string | number;
@@ -31,85 +31,32 @@ interface EloProgressionChartProps {
   matchHistory: MatchHistoryEntry[];
   players: CalculatedPlayer[];
   year?: number | null;
+  decayEnabled?: boolean;
+  decayHalfLifeDays?: number;
+  decayStartDay?: number;
 }
 
-export function EloProgressionChart({ matchHistory, players, year }: EloProgressionChartProps) {
+export function EloProgressionChart({
+  matchHistory,
+  players,
+  year,
+  decayEnabled = false,
+  decayHalfLifeDays = 30,
+  decayStartDay = 14,
+}: EloProgressionChartProps) {
   const [range, setRange] = useState<RangeOption>('last15');
 
-  const filteredMatchHistory = useMemo(() => {
-    if (!matchHistory.length) return [];
-    
-    const now = new Date();
-    const sortedHistory = [...matchHistory].sort((a, b) => 
-      new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
-    );
-    
-    switch (range) {
-      case 'last15':
-        return sortedHistory.slice(-15);
-      case 'lastMonth': {
-        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return sortedHistory.filter(m => new Date(m.matchDate) >= oneMonthAgo);
-      }
-      case 'last3Months': {
-        const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        return sortedHistory.filter(m => new Date(m.matchDate) >= threeMonthsAgo);
-      }
-      case 'lastYear': {
-        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        return sortedHistory.filter(m => new Date(m.matchDate) >= oneYearAgo);
-      }
-      default:
-        return sortedHistory;
-    }
-  }, [matchHistory, range]);
-
-  const chartData = useMemo(() => {
-    if (!filteredMatchHistory.length || !players.length) return [];
-
-    const playerNames = players.reduce((acc, p) => {
-      acc[p.playerId] = p.playerName;
-      return acc;
-    }, {} as Record<string, string>);
-
-    // Find the starting Elo for each player at the beginning of the filtered range
-    const allSorted = [...matchHistory].sort((a, b) => 
-      new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
-    );
-    
-    const playerElos: Record<string, number> = {};
-    players.forEach(p => { playerElos[p.playerId] = 1000; });
-    
-    // Find the global index of the first filtered match
-    const firstFilteredMatchId = filteredMatchHistory[0]?.matchId;
-    const firstFilteredGlobalIndex = allSorted.findIndex(m => m.matchId === firstFilteredMatchId);
-    
-    // Calculate Elo up to the start of filtered range
-    allSorted.slice(0, firstFilteredGlobalIndex).forEach(entry => {
-      entry.results.forEach(r => {
-        playerElos[r.playerId] = r.eloAfter;
-      });
-    });
-
-    // Starting point uses the global index
-    const startMatchNumber = firstFilteredGlobalIndex > 0 ? firstFilteredGlobalIndex : 0;
-    const data: ChartPoint[] = [{ match: startMatchNumber, ...Object.fromEntries(Object.entries(playerElos).map(([id, elo]) => [playerNames[id], Math.round(elo)])) }];
-
-    filteredMatchHistory.forEach((entry, index) => {
-      entry.results.forEach(r => {
-        playerElos[r.playerId] = r.eloAfter;
-      });
-      
-      const dataPoint: ChartPoint = { match: startMatchNumber + index + 1 };
-      Object.entries(playerElos).forEach(([id, elo]) => {
-        const name = playerNames[id];
-        if (name) dataPoint[name] = Math.round(elo);
-      });
-      data.push(dataPoint);
-    });
-
-    return data;
-  }, [filteredMatchHistory, players, matchHistory]);
+  const chartData = useMemo(
+    () =>
+      buildEloProgressionSeries({
+        matchHistory,
+        players,
+        range,
+        decay: decayEnabled ? { halfLifeDays: decayHalfLifeDays, startDay: decayStartDay } : null,
+        now: new Date(),
+      }),
+    [matchHistory, players, range, decayEnabled, decayHalfLifeDays, decayStartDay],
+  );
 
   const chartConfig = useMemo(() => {
     const config: ChartConfig = {};
@@ -171,9 +118,10 @@ export function EloProgressionChart({ matchHistory, players, year }: EloProgress
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   const matchNum = payload[0]?.payload?.match;
+                  const isNow = payload[0]?.payload?.isNow;
                   return (
                     <div className="rounded-lg border bg-background p-2 shadow-sm">
-                      <div className="font-medium mb-1">Match #{matchNum}</div>
+                      <div className="font-medium mb-1">{isNow ? 'Today (after decay)' : `Match #${matchNum}`}</div>
                       <div className="grid gap-1">
                         {(payload as TooltipEntry[]).map((entry) => (
                           <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-sm">
