@@ -50,4 +50,6 @@ The current source uses passkeys and individual legacy claim codes. See
 [passkey configuration and cutover](docs/passkey-auth-operations.md) before deploying
 this authentication change to production. It includes deletion of all old password
 sessions, refresh tokens, reset grants, and email-account records. The implementation
-is verified on the development backend; production rollout is still pending.
+is live in production at https://elo.janjaap.de. Legacy players use their individual
+claim code to retain their existing data; password/email login and old sessions
+have been removed.
