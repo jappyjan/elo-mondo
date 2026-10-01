@@ -103,7 +103,8 @@ export default function Groups() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end gap-2 mb-4">
+        <Link to="/account"><Button variant="ghost" size="sm">Account security</Button></Link>
         <Button variant="ghost" size="sm" onClick={async () => {
           await signOut();
           navigate('/');

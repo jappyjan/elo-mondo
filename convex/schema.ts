@@ -39,6 +39,32 @@ export default defineSchema({
     emailVerificationTime: v.optional(v.number()), phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()), isAnonymous: v.optional(v.boolean()),
     legacyId: v.optional(v.string()), disabled: v.optional(v.boolean()),
+    passkeyHandle: v.optional(v.string()), passkeyMigratedAt: v.optional(v.number()),
+    passkeyEpoch: v.optional(v.number()), claimEligible: v.optional(v.boolean()),
   }).index('email', ['email']).index('phone', ['phone']).index('by_legacy_id', ['legacyId']),
+  passkeys: defineTable({
+    userId: v.id('users'), credentialId: v.string(), publicKey: v.bytes(), counter: v.number(),
+    transports: v.array(v.string()), deviceType: v.string(), backedUp: v.boolean(),
+    name: v.string(), createdAt: v.number(), lastUsedAt: v.optional(v.number()),
+  }).index('by_credential', ['credentialId']).index('by_user', ['userId']),
+  passkeySessions: defineTable({
+    sessionId: v.id('authSessions'), userId: v.id('users'), credentialId: v.id('passkeys'),
+    verifiedAt: v.number(), epoch: v.number(),
+  }).index('by_session', ['sessionId']).index('by_user', ['userId']),
+  passkeyChallenges: defineTable({
+    purpose: v.union(v.literal('authenticate'), v.literal('signup'), v.literal('claim'), v.literal('recover'), v.literal('add')),
+    challenge: v.string(), nonceHash: v.string(), rpId: v.string(), origin: v.string(),
+    userId: v.optional(v.id('users')), sessionId: v.optional(v.id('authSessions')),
+    grantId: v.optional(v.id('passkeyGrants')), name: v.string(), handle: v.string(),
+    recoveryHashes: v.array(v.string()), epoch: v.number(), expiresAt: v.number(),
+    status: v.union(v.literal('pending'), v.literal('verifying'), v.literal('consumed')),
+  }).index('by_expiry', ['expiresAt']),
+  passkeyGrants: defineTable({
+    userId: v.id('users'), kind: v.union(v.literal('claim'), v.literal('recovery')),
+    hash: v.string(), createdAt: v.number(), expiresAt: v.optional(v.number()),
+    consumedAt: v.optional(v.number()),
+  }).index('by_hash', ['hash']).index('by_user', ['userId']),
+  passkeyRateLimits: defineTable({ key: v.string(), windowStart: v.number(), count: v.number() }).index('by_key', ['key']),
+  passkeyAudit: defineTable({ userId: v.id('users'), event: v.string(), at: v.number() }).index('by_user', ['userId']),
   ...businessTables,
 });

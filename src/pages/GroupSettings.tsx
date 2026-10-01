@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { convex, api } from '@/integrations/convex/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Copy, UserPlus, Loader2, Check, Crown, User } from 'lucide-react';
+import { Copy, Loader2, Check, Crown, User } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 interface GroupMemberWithPlayer {
@@ -33,11 +29,7 @@ interface GroupMemberRow {
 
 export default function GroupSettings() {
   const { groupId } = useParams<{ groupId: string }>();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [inviteEmail, setInviteEmail] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   // Fetch group info
   const { data: group } = useQuery({
@@ -67,37 +59,6 @@ export default function GroupSettings() {
       return convex.query(api.data.members, { groupId });
     },
     enabled: !!groupId,
-  });
-
-  // Check if current user is admin
-  const { data: currentMembership } = useQuery({
-    queryKey: ['current-membership', groupId, user?.id],
-    queryFn: async () => {
-      if (!groupId || !user) return null;
-      
-      return convex.query(api.data.currentMembership, { groupId });
-    },
-    enabled: !!groupId && !!user,
-  });
-
-  const isAdmin = currentMembership?.role === 'admin';
-
-  // Send email invite mutation
-  const sendInvite = useMutation({
-    mutationFn: async (email: string) => {
-      return convex.mutation(api.data.createInvite, { groupId: groupId!, email });
-    },
-    onSuccess: () => {
-      toast({ title: 'Invite Sent', description: 'Email invitation has been created' });
-      setInviteEmail('');
-      setInviteDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      const message = error.message.includes('duplicate') 
-        ? 'This email has already been invited'
-        : error.message;
-      toast({ title: 'Error', description: message, variant: 'destructive' });
-    }
   });
 
   const copyInviteCode = () => {
@@ -145,50 +106,6 @@ export default function GroupSettings() {
           </Card>
         )}
 
-        {/* Email Invite Card (Admin only) */}
-        {isAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Invitations</CardTitle>
-              <CardDescription>Send email invitations to specific people</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <UserPlus className="h-4 w-4 mr-2" /> Invite by Email
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Send Email Invite</DialogTitle>
-                    <DialogDescription>
-                      The recipient will receive an invitation to join {group.name}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={(e) => { e.preventDefault(); sendInvite.mutate(inviteEmail); }} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="invite-email">Email Address</Label>
-                      <Input
-                        id="invite-email"
-                        type="email"
-                        placeholder="friend@example.com"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={sendInvite.isPending}>
-                      {sendInvite.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Send Invitation
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Members Card */}
         <Card>
           <CardHeader>
@@ -210,7 +127,7 @@ export default function GroupSettings() {
                       ) : (
                         <User className="h-4 w-4 text-muted-foreground" />
                       )}
-                      <span>{member.player.name}</span>
+                      <span>{member.player?.name ?? 'Player'}</span>
                     </div>
                     <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
                   </div>

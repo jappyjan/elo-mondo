@@ -4,11 +4,12 @@ import { internalMutation } from './_generated/server';
 import { byId } from './data';
 
 export const cleanup = internalMutation({
-  args: { email: v.string() },
-  handler: async (ctx, { email }) => {
-    if (!/^migration-(rehearsal|validation-\d+)@elomondo\.invalid$/.test(email)) throw new Error('Only synthetic migration accounts can be removed');
-    const user = await ctx.db.query('users').withIndex('email', q => q.eq('email', email)).unique();
+  args: { email: v.optional(v.string()), userId: v.optional(v.id('users')) },
+  handler: async (ctx, { email, userId: targetId }) => {
+    if ((!email && !targetId) || (email && targetId) || (email && !/^migration-(rehearsal|validation-\d+)@elomondo\.invalid$/.test(email))) throw new Error('Only synthetic migration accounts can be removed');
+    const user = targetId ? await ctx.db.get(targetId) : await ctx.db.query('users').withIndex('email', q => q.eq('email', email!)).unique();
     if (!user) return { groups: 0, users: 0 };
+    if (targetId && (user.legacyId || !/^Passkey QA /.test(user.name ?? ''))) throw new Error('Only synthetic passkey accounts can be removed');
     if (user.legacyId && user.legacyId !== 'migration-rehearsal') throw new Error('Cannot remove a migrated source account');
     const userId = user.legacyId ?? user._id;
     const groups = (await ctx.db.query('groups').collect()).filter(g => g.created_by === userId);
@@ -57,7 +58,12 @@ export const cleanup = internalMutation({
       for (const code of await ctx.db.query('authVerificationCodes').withIndex('accountId', q => q.eq('accountId', account._id)).collect()) await ctx.db.delete(code._id);
       await ctx.db.delete(account._id);
     }
-    for (const limit of await ctx.db.query('authRateLimits').withIndex('identifier', q => q.eq('identifier', email)).collect()) await ctx.db.delete(limit._id);
+    if (email) for (const limit of await ctx.db.query('authRateLimits').withIndex('identifier', q => q.eq('identifier', email)).collect()) await ctx.db.delete(limit._id);
+    for (const proof of await ctx.db.query('passkeySessions').withIndex('by_user', q => q.eq('userId', user._id)).collect()) await ctx.db.delete(proof._id);
+    for (const key of await ctx.db.query('passkeys').withIndex('by_user', q => q.eq('userId', user._id)).collect()) await ctx.db.delete(key._id);
+    for (const grant of await ctx.db.query('passkeyGrants').withIndex('by_user', q => q.eq('userId', user._id)).collect()) await ctx.db.delete(grant._id);
+    for (const event of await ctx.db.query('passkeyAudit').withIndex('by_user', q => q.eq('userId', user._id)).collect()) await ctx.db.delete(event._id);
+    for (const challenge of await ctx.db.query('passkeyChallenges').collect()) if (challenge.userId === user._id) await ctx.db.delete(challenge._id);
     await ctx.db.delete(user._id);
     return { groups: groups.length, users: 1 };
   },

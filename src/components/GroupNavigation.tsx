@@ -93,6 +93,7 @@ export default function GroupNavigation() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/account')}>Account security</DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/groups" className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
