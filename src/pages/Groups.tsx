@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { convex, api } from "@/integrations/convex/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,32 +49,7 @@ export default function Groups() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Get player for current user
-      const { data: player } = await supabase.from("players").select("id").eq("user_id", user.id).single();
-
-      if (!player) return [];
-
-      // Get memberships with group info
-      const { data: memberships, error } = await supabase
-        .from("group_members")
-        .select(
-          `
-          role,
-          groups (
-            id,
-            name,
-            created_at
-          )
-        `,
-        )
-        .eq("player_id", player.id);
-
-      if (error) throw error;
-
-      return ((memberships || []) as MembershipRow[]).map((m) => ({
-        ...m.groups,
-        role: m.role,
-      })) as GroupWithMembership[];
+      return convex.query(api.data.myGroups, {});
     },
     enabled: !!user,
   });
@@ -82,9 +57,7 @@ export default function Groups() {
   // Create group mutation
   const createGroup = useMutation({
     mutationFn: async (name: string) => {
-      const { data, error } = await supabase.from("groups").insert({ name, created_by: user?.id }).select().single();
-      if (error) throw error;
-      return data;
+      return convex.mutation(api.data.createGroup, { name });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["user-groups"] });
@@ -101,9 +74,7 @@ export default function Groups() {
   // Join group mutation
   const joinGroup = useMutation({
     mutationFn: async (code: string) => {
-      const { data, error } = await supabase.rpc("join_group_by_code", { _invite_code: code });
-      if (error) throw error;
-      return data;
+      return convex.mutation(api.data.joinGroup, { code });
     },
     onSuccess: (groupId) => {
       queryClient.invalidateQueries({ queryKey: ["user-groups"] });

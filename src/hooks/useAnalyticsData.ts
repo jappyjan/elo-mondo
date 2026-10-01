@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { convex, api, fetchAnalyticsThrows } from '@/integrations/convex/client';
 import { useCalculatedPlayers } from '@/hooks/usePlayers';
 import { AnalyticsMatch, AnalyticsThrow, AnalyticsTimeScope, LeagueAnalyticsSummary, PlayerMatchStats, ThrowAnalyticsSummary } from '@/lib/analytics/types';
 import { filterByScope, getScopeEnd, getScopeStart } from '@/lib/analytics/timeScope';
@@ -43,7 +43,6 @@ type ThrowRow = {
   };
 };
 
-const THROW_PAGE_SIZE = 1000;
 
 export function buildLeagueSummary(matches: Array<unknown>, throws: ThrowAnalyticsSummary, playerStats: PlayerMatchStats[]): LeagueAnalyticsSummary {
   const activePlayers = playerStats.filter((player) => player.matches > 0);
@@ -98,14 +97,7 @@ export function useAnalyticsData(groupId: string | undefined, timeScope: Analyti
     queryKey: ['analytics-matches', groupId],
     enabled: !!groupId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('matches')
-        .select('id, created_at, total_players, participants:match_participants(player_id, rank, is_winner, player:players(id, name))')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      return (data ?? []) as unknown as MatchRow[];
+      return convex.query(api.data.matches, { groupId: groupId! });
     },
   });
 
@@ -114,49 +106,7 @@ export function useAnalyticsData(groupId: string | undefined, timeScope: Analyti
     enabled: !!groupId,
     queryFn: async () => {
       const range = getAnalyticsThrowDateRange(timeScope);
-      const rows: ThrowRow[] = [];
-
-      for (let from = 0; ; from += THROW_PAGE_SIZE) {
-        let query = supabase
-          .from('game_throws')
-          .select(`
-            id,
-            game_id,
-            game_player_id,
-            turn_number,
-            throw_index,
-            segment,
-            multiplier,
-            score,
-            label,
-            created_at,
-            live_games!inner (
-              group_id,
-              status,
-              started_at,
-              finished_at
-            ),
-            live_game_players!inner (
-              player_id,
-              player_name
-            )
-          `)
-          .eq('live_games.group_id', groupId)
-          .eq('live_games.status', 'completed')
-          .order('created_at', { ascending: true });
-
-        if (range.start) query = query.gte('created_at', range.start);
-        if (range.end) query = query.lte('created_at', range.end);
-
-        const { data, error } = await query.range(from, from + THROW_PAGE_SIZE - 1);
-
-        if (error) throw error;
-        const page = (data ?? []) as unknown as ThrowRow[];
-        rows.push(...page);
-        if (page.length < THROW_PAGE_SIZE) break;
-      }
-
-      return rows;
+      return fetchAnalyticsThrows(groupId!, range.start ?? undefined, range.end ?? undefined);
     },
   });
 

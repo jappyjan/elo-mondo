@@ -1,191 +1,83 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Target, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import { z } from 'zod';
 
-const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
-const nameSchema = z.string().min(2, 'Name must be at least 2 characters');
-
+type Step = 'signIn' | 'signUp' | 'reset' | 'reset-verification' | 'email-verification';
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
+  const { user, loading } = useAuth();
+  const { signIn } = useAuthActions();
+  const [step, setStep] = useState<Step>('signIn');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  
-  // Signup form state
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupName, setSignupName] = useState('');
+  useEffect(() => { if (user) navigate('/groups', { replace: true }); }, [user, navigate]);
 
-  // Redirect if already logged in
-  if (user) {
-    navigate('/');
-    return null;
-  }
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      emailSchema.parse(loginEmail);
-      passwordSchema.parse(loginPassword);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        toast({ title: 'Validation Error', description: err.errors[0].message, variant: 'destructive' });
-        return;
-      }
-    }
-
+  const changeStep = (next: Step) => { setStep(next); setPassword(''); setCode(''); };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
-    setIsLoading(false);
-
-    if (error) {
+    try {
+      const result = await signIn('password', {
+        flow: step, email: email.trim().toLowerCase(),
+        ...(step === 'signIn' || step === 'signUp' ? { password } : {}),
+        ...(step === 'signUp' ? { name: name.trim() } : {}),
+        ...(step === 'reset-verification' ? { newPassword: password } : {}),
+        ...(step === 'reset-verification' || step === 'email-verification' ? { code: code.trim().toUpperCase() } : {}),
+      });
+      if (step === 'reset') {
+        changeStep('reset-verification');
+        toast({ title: 'Check your email', description: 'Enter your reset code and choose a new password.' });
+      } else if (!result.signingIn && (step === 'signUp' || step === 'signIn')) {
+        changeStep('email-verification');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
       toast({
-        title: 'Login Failed',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Invalid email or password' 
-          : error.message,
-        variant: 'destructive'
+        title: 'Unable to continue',
+        description: step === 'signIn' ? 'Check your email and password. Existing DIGIMONDO players need to set a new password first.'
+          : step === 'signUp' ? 'Unable to create an account. If you already have one, use Set a new password.'
+          : step === 'reset' ? 'Unable to send a reset code. Check the address and try again.'
+          : 'The code could not be verified. Check it or request a new code.',
+        variant: 'destructive',
       });
-    } else {
-      toast({ title: 'Welcome back!', description: 'Successfully logged in' });
-      navigate('/');
-    }
+      if (import.meta.env.DEV) console.error('Authentication failed:', message);
+    } finally { setIsLoading(false); }
   };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      emailSchema.parse(signupEmail);
-      passwordSchema.parse(signupPassword);
-      nameSchema.parse(signupName);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        toast({ title: 'Validation Error', description: err.errors[0].message, variant: 'destructive' });
-        return;
-      }
-    }
-
-    setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
-    setIsLoading(false);
-
-    if (error) {
-      const message = error.message.includes('already registered')
-        ? 'An account with this email already exists'
-        : error.message;
-      toast({ title: 'Signup Failed', description: message, variant: 'destructive' });
-    } else {
-      toast({ 
-        title: 'Account Created!', 
-        description: 'Please check your email to confirm your account, or log in if email confirmation is disabled.' 
-      });
-    }
-  };
-
+  if (loading || user) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  const verifying = step === 'reset-verification' || step === 'email-verification';
+  const needsPassword = step === 'signIn' || step === 'signUp' || step === 'reset-verification';
+  const title = step === 'signUp' ? 'Create account' : step === 'reset' ? 'Set a new password' : step === 'reset-verification' ? 'Reset password' : step === 'email-verification' ? 'Verify email' : 'Login';
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <Target className="h-12 w-12 text-primary" />
-          </div>
+          <Target className="h-12 w-12 text-primary mx-auto mb-4" />
           <CardTitle className="text-2xl">EloMondo</CardTitle>
-          <CardDescription>Track your darts Elo rating with friends</CardDescription>
+          <CardDescription>{title}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Login
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Display Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Your name"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+        <CardContent className="space-y-4">
+          {step === 'signIn' && <p className="text-sm text-muted-foreground">Already a DIGIMONDO player? Set a new password to keep your match history.</p>}
+          {verifying && <p className="text-sm text-muted-foreground">Enter the code sent to {email}. The code expires after 15 minutes.</p>}
+          <form onSubmit={submit} className="space-y-4">
+            {step === 'signUp' && <div className="space-y-2"><Label htmlFor="auth-name">Display name</Label><Input id="auth-name" value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={100} required autoComplete="nickname" /></div>}
+            {!verifying && <div className="space-y-2"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" /></div>}
+            {verifying && <div className="space-y-2"><Label htmlFor="auth-code">Email code</Label><Input id="auth-code" value={code} onChange={e => setCode(e.target.value)} required autoComplete="one-time-code" /></div>}
+            {needsPassword && <div className="space-y-2"><Label htmlFor="auth-password">{step === 'reset-verification' ? 'New password' : 'Password'}</Label><Input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required autoComplete={step === 'signIn' ? 'current-password' : 'new-password'} /></div>}
+            <Button type="submit" className="w-full" disabled={isLoading}>{isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}{step === 'reset' ? 'Send reset code' : verifying ? 'Continue' : title}</Button>
+          </form>
+          {step === 'signIn' && <div className="flex flex-col gap-2"><Button variant="outline" onClick={() => changeStep('reset')}>Set a new password</Button><Button variant="ghost" onClick={() => changeStep('signUp')}>Create an account</Button></div>}
+          {step !== 'signIn' && <Button variant="ghost" className="w-full" disabled={isLoading} onClick={() => changeStep(verifying ? (step === 'reset-verification' ? 'reset' : 'signIn') : 'signIn')}>{verifying ? 'Back / request a new code' : 'Back to login'}</Button>}
         </CardContent>
       </Card>
     </div>

@@ -1,94 +1,44 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { useConvexAuth, useQuery } from 'convex/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/integrations/convex/client';
 
+type AuthResult = { error: Error | null; needsVerification?: boolean };
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: { id: string; email?: string; name?: string } | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string, name: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const viewer = useQuery(api.data.viewer, isAuthenticated ? {} : 'skip');
+  const actions = useAuthActions();
+  const queryClient = useQueryClient();
+  useEffect(() => { void queryClient.invalidateQueries(); }, [viewer?.id, queryClient]);
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
-  };
-
-  const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: { name }
-      }
-    });
-
-    if (error) return { error: error as Error };
-
-    // Create player record for this user
-    if (data.user) {
-      const { error: playerError } = await supabase
-        .from('players')
-        .insert({ name, user_id: data.user.id });
-      
-      if (playerError) {
-        console.error('Failed to create player:', playerError);
-      }
+  const passwordFlow = async (email: string, password: string, name?: string): Promise<AuthResult> => {
+    try {
+      const result = await actions.signIn('password', { email, password, flow: name === undefined ? 'signIn' : 'signUp', ...(name === undefined ? {} : { name }) });
+      return { error: null, needsVerification: !result.signingIn };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Authentication failed') };
     }
-
-    return { error: null };
   };
-
-  const signOut = async () => {
-    // Use local scope to clear session without requiring server validation
-    await supabase.auth.signOut({ scope: 'local' });
-    setUser(null);
-    setSession(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const signOut = async () => { await actions.signOut(); queryClient.clear(); };
+  return <AuthContext.Provider value={{
+    user: isAuthenticated ? viewer ?? null : null,
+    loading: isLoading || (isAuthenticated && viewer === undefined),
+    signIn: (email, password) => passwordFlow(email, password),
+    signUp: (email, password, name) => passwordFlow(email, password, name), signOut,
+  }}>{children}</AuthContext.Provider>;
 }
-
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

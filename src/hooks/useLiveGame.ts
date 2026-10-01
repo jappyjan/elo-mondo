@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { convex, api } from '@/integrations/convex/client';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   LiveGameState,
   GameSettings,
@@ -8,13 +9,13 @@ import {
   TurnRecord,
   GamePlayer,
 } from '@/types/liveGame';
-import { Tables, TablesInsert } from '@/integrations/supabase/types';
+import type { Doc } from '../../convex/_generated/dataModel';
 
 const STORAGE_KEY = 'elomondo-live-game-id';
 
-type DbGame = Tables<'live_games'>;
-type DbGamePlayer = Tables<'live_game_players'>;
-type DbThrow = Tables<'game_throws'>;
+type DbGame = Omit<Doc<'live_games'>, '_id' | '_creationTime'>;
+type DbGamePlayer = Omit<Doc<'live_game_players'>, '_id' | '_creationTime'>;
+type DbThrow = Omit<Doc<'game_throws'>, '_id' | '_creationTime'>;
 
 interface DbData {
   game: DbGame;
@@ -276,6 +277,7 @@ function findNextActivePlayer(
 }
 
 export function useLiveGame(groupId: string) {
+  const { loading: authLoading } = useAuth();
   const [gameState, setGameState] = useState<LiveGameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [gameId, setGameId] = useState<string | null>(() => {
@@ -286,49 +288,21 @@ export function useLiveGame(groupId: string) {
   const loadGame = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
-      // Fetch game
-      const { data: game, error: gameError } = await supabase
-        .from('live_games')
-        .select('*')
-        .eq('id', id)
-        .eq('group_id', groupId)
-        .single();
-      
-      if (gameError || !game) {
+      const data = await convex.query(api.live.load, { gameId: id, groupId });
+      if (!data) {
         localStorage.removeItem(STORAGE_KEY);
         setGameId(null);
         setGameState(null);
         return;
       }
-      
+      const { game, players, throws } = data;
+
       // Only load in-progress games
       if (game.status !== 'in_progress') {
         localStorage.removeItem(STORAGE_KEY);
         setGameId(null);
         setGameState(null);
         return;
-      }
-      
-      // Fetch players
-      const { data: players, error: playersError } = await supabase
-        .from('live_game_players')
-        .select('*')
-        .eq('game_id', id)
-        .order('play_order');
-      
-      if (playersError || !players) {
-        throw playersError;
-      }
-      
-      // Fetch throws
-      const { data: throws, error: throwsError } = await supabase
-        .from('game_throws')
-        .select('*')
-        .eq('game_id', id)
-        .order('created_at');
-      
-      if (throwsError) {
-        throw throwsError;
       }
       
       const state = computeGameState({ game, players, throws: throws || [] });
@@ -345,59 +319,17 @@ export function useLiveGame(groupId: string) {
 
   // Initial load
   useEffect(() => {
+    if (authLoading) return;
     if (gameId) {
       loadGame(gameId);
     } else {
       setIsLoading(false);
     }
-  }, [gameId, loadGame]);
+  }, [gameId, loadGame, authLoading]);
 
   const startGame = useCallback(async (settings: GameSettings) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('Must be logged in to start a game');
-    }
-    
-    const startingScore = getStartingScore(settings.gameType);
-    
-    // Create game
-    const { data: game, error: gameError } = await supabase
-      .from('live_games')
-      .insert({
-        group_id: groupId,
-        created_by: user.id,
-        game_type: settings.gameType,
-        start_rule: settings.startRule,
-        end_rule: settings.endRule,
-      })
-      .select()
-      .single();
-    
-    if (gameError || !game) {
-      throw gameError || new Error('Failed to create game');
-    }
-    
-    // Create players
-    const playerInserts: TablesInsert<'live_game_players'>[] = settings.players.map((player, index) => ({
-      game_id: game.id,
-      player_id: player.isTemporary ? null : player.id,
-      player_name: player.name,
-      is_temporary: player.isTemporary || false,
-      play_order: index + 1,
-      starting_score: startingScore,
-    }));
-    
-    const { data: players, error: playersError } = await supabase
-      .from('live_game_players')
-      .insert(playerInserts)
-      .select();
-    
-    if (playersError || !players) {
-      // Clean up game if players failed
-      await supabase.from('live_games').delete().eq('id', game.id);
-      throw playersError || new Error('Failed to create players');
-    }
-    
+    const { game, players } = await convex.mutation(api.live.start, { groupId, gameType: settings.gameType, startRule: settings.startRule, endRule: settings.endRule, players: settings.players.map(p => ({ id: p.id, name: p.name, isTemporary: !!p.isTemporary })) });
+
     // Store game ID in localStorage
     localStorage.setItem(STORAGE_KEY, game.id);
     setGameId(game.id);
@@ -409,11 +341,7 @@ export function useLiveGame(groupId: string) {
 
   const resetGame = useCallback(async () => {
     if (gameId) {
-      // Update game status to abandoned
-      await supabase
-        .from('live_games')
-        .update({ status: 'abandoned' })
-        .eq('id', gameId);
+      await convex.mutation(api.live.abandon, { gameId });
     }
     
     localStorage.removeItem(STORAGE_KEY);
@@ -487,26 +415,7 @@ export function useLiveGame(groupId: string) {
       const turnNumber = currentPlayer.turnHistory.length + 1;
       const throwIndex = gameState.currentTurnDarts.length;
 
-      // Insert throw into database (fire and forget for UI responsiveness)
-      supabase
-        .from('game_throws')
-        .insert({
-          game_id: gameId,
-          game_player_id: currentPlayerId,
-          turn_number: turnNumber,
-          throw_index: throwIndex,
-          segment: dart.segment,
-          multiplier: dart.multiplier,
-          score: dart.score,
-          label: dart.label,
-        })
-        .then(({ error }) => {
-          if (error) {
-            console.error('Failed to record throw:', error);
-          }
-        });
-
-      // Build updated player state optimistically
+      // Build the next state; publish it after the transaction succeeds.
       const updatedPlayerStates = { ...gameState.playerStates };
       const updatedCurrentPlayer = { ...currentPlayer };
       
@@ -543,15 +452,6 @@ export function useLiveGame(groupId: string) {
         updatedFinishedPlayerIds.push(currentPlayerId);
         updatedNextRank = gameState.nextRank + 1;
         
-        // Update database asynchronously
-        supabase
-          .from('live_game_players')
-          .update({ finished_rank: gameState.nextRank })
-          .eq('id', currentPlayerId)
-          .then(({ error }) => {
-            if (error) console.error('Failed to update finished rank:', error);
-          });
-        
         // Check if game should end
         const remainingPlayers = gameState.playerOrder.filter(
           id => !updatedFinishedPlayerIds.includes(id)
@@ -568,23 +468,7 @@ export function useLiveGame(groupId: string) {
             lastPlayer.finishedRank = updatedNextRank;
             updatedPlayerStates[lastPlayerId] = lastPlayer;
             updatedFinishedPlayerIds.push(lastPlayerId);
-            
-            supabase
-              .from('live_game_players')
-              .update({ finished_rank: updatedNextRank })
-              .eq('id', lastPlayerId)
-              .then(({ error }) => {
-                if (error) console.error('Failed to update last player rank:', error);
-              });
           }
-          
-          supabase
-            .from('live_games')
-            .update({ status: 'completed', finished_at: finishedAt })
-            .eq('id', gameId)
-            .then(({ error }) => {
-              if (error) console.error('Failed to complete game:', error);
-            });
         }
       }
 
@@ -609,7 +493,12 @@ export function useLiveGame(groupId: string) {
         }
       }
 
-      // Update state optimistically
+      const finishedRanks = Object.values(updatedPlayerStates)
+        .filter(p => p.finishedRank !== null && gameState.playerStates[p.playerId].finishedRank !== p.finishedRank)
+        .map(p => ({ playerId: p.playerId, rank: p.finishedRank! }));
+      await convex.mutation(api.live.addThrow, { gameId, gamePlayerId: currentPlayerId, turnNumber, throwIndex, dart, finishedRanks, completed: isGameOver });
+
+      // Publish the persisted state.
       setGameState({
         ...gameState,
         playerStates: updatedPlayerStates,
@@ -634,22 +523,12 @@ export function useLiveGame(groupId: string) {
     const currentPlayer = gameState.playerStates[currentPlayerId];
     
     // Check if we're undoing from current turn or need to go back to previous player
-    if (gameState.currentTurnDarts.length > 0) {
+    if (gameState.currentTurnDarts.length > 0 && !gameState.isGameOver) {
       // Undo from current turn
       const newDarts = gameState.currentTurnDarts.slice(0, -1);
       
-      // Delete from database asynchronously
-      supabase
-        .from('game_throws')
-        .delete()
-        .eq('game_id', gameId)
-        .eq('game_player_id', currentPlayerId)
-        .eq('turn_number', currentPlayer.turnHistory.length + 1)
-        .eq('throw_index', gameState.currentTurnDarts.length - 1)
-        .then(({ error }) => {
-          if (error) console.error('Failed to delete throw:', error);
-        });
-      
+      await convex.mutation(api.live.undo, { gameId, gamePlayerId: currentPlayerId, turnNumber: currentPlayer.turnHistory.length + 1, throwIndex: gameState.currentTurnDarts.length - 1, resetPlayerIds: [] });
+
       // Recalculate hasDoubledIn based on remaining darts
       let hasDoubledIn = currentPlayer.hasDoubledIn;
       if (gameState.startRule === 'double-in') {
@@ -679,18 +558,8 @@ export function useLiveGame(groupId: string) {
     } else {
       // Need to go back to the previous player's last turn
       // Find the last throw in the database to know which player/turn to undo
-      const { data: lastThrow, error: fetchError } = await supabase
-        .from('game_throws')
-        .select('*')
-        .eq('game_id', gameId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (fetchError || !lastThrow) {
-        console.error('No throw to undo');
-        return;
-      }
+      const lastThrow = await convex.query(api.live.lastThrow, { gameId });
+      if (!lastThrow) return;
 
       const lastPlayerId = lastThrow.game_player_id;
       const lastPlayer = gameState.playerStates[lastPlayerId];
@@ -698,39 +567,6 @@ export function useLiveGame(groupId: string) {
       if (!lastPlayer || lastPlayer.turnHistory.length === 0) {
         return;
       }
-
-      // Check if we need to undo a finished rank
-      const wasFinished = lastPlayer.finishedRank !== null;
-      if (wasFinished) {
-        // Reset the player's finished rank in database
-        supabase
-          .from('live_game_players')
-          .update({ finished_rank: null })
-          .eq('id', lastPlayerId)
-          .then(({ error }) => {
-            if (error) console.error('Failed to reset finished rank:', error);
-          });
-
-        // If game was completed, revert to in_progress
-        if (gameState.isGameOver) {
-          supabase
-            .from('live_games')
-            .update({ status: 'in_progress', finished_at: null })
-            .eq('id', gameId)
-            .then(({ error }) => {
-              if (error) console.error('Failed to revert game status:', error);
-            });
-        }
-      }
-
-      // Delete the last throw from database
-      supabase
-        .from('game_throws')
-        .delete()
-        .eq('id', lastThrow.id)
-        .then(({ error }) => {
-          if (error) console.error('Failed to delete throw:', error);
-        });
 
       // Rebuild state: restore the last turn minus the last dart
       const lastTurn = lastPlayer.turnHistory[lastPlayer.turnHistory.length - 1];
@@ -763,23 +599,20 @@ export function useLiveGame(groupId: string) {
         // Find any player who was assigned last place automatically
         for (const playerId of gameState.playerOrder) {
           const player = gameState.playerStates[playerId];
-          if (player.finishedRank === gameState.nextRank - 1 && playerId !== lastPlayerId) {
+          if (player.finishedRank === gameState.nextRank && playerId !== lastPlayerId) {
             const updatedPlayer = { ...updatedPlayerStates[playerId] };
             updatedPlayer.finishedRank = null;
             updatedPlayerStates[playerId] = updatedPlayer;
             updatedFinishedPlayerIds = updatedFinishedPlayerIds.filter(id => id !== playerId);
-            
-            supabase
-              .from('live_game_players')
-              .update({ finished_rank: null })
-              .eq('id', playerId)
-              .then(({ error }) => {
-                if (error) console.error('Failed to reset auto-assigned rank:', error);
-              });
           }
         }
       }
       
+      const resetPlayerIds = Object.values(updatedPlayerStates)
+        .filter(p => p.finishedRank === null && gameState.playerStates[p.playerId].finishedRank !== null)
+        .map(p => p.playerId);
+      await convex.mutation(api.live.undo, { gameId, gamePlayerId: lastThrow.game_player_id, turnNumber: lastThrow.turn_number, throwIndex: lastThrow.throw_index, resetPlayerIds });
+
       const lastPlayerIndex = gameState.playerOrder.indexOf(lastPlayerId);
       
       setGameState({

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Database exports contain emails, password hashes, and private invite codes.
+/backups/
+/scripts/migration/__pycache__/
+/supabase/.temp/linked-project.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

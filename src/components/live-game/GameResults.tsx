@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRecordMultiPlayerMatch } from '@/hooks/useRecordMultiPlayerMatch';
 import { useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { convex, api } from '@/integrations/convex/client';
 
 interface GameResultsProps {
   playerStates: Record<string, PlayerGameState>;
@@ -68,14 +68,7 @@ export function GameResults({ playerStates, onNewGame, onUndo, canUndo, groupId 
           if (cachedId) {
             playerId = cachedId;
           } else {
-            const { data: resolvedPlayerId, error } = await supabase.rpc('ensure_group_temp_player', {
-              _group_id: groupId,
-              _player_name: normalizedName,
-            });
-
-            if (error || !resolvedPlayerId) {
-              throw new Error(`Failed to add player ${normalizedName} to group: ${error?.message || 'Unknown error'}`);
-            }
+            const resolvedPlayerId = await convex.mutation(api.data.ensureTempPlayer, { groupId, name: normalizedName });
 
             playerId = resolvedPlayerId;
             tempPlayerIdCache.set(cacheKey, playerId);

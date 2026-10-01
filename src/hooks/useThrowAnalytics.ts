@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchAnalyticsThrows } from '@/integrations/convex/client';
 
 export interface ThrowData {
   id: string;
@@ -358,35 +358,8 @@ export function useThrowAnalytics(groupId: string | undefined) {
   return useQuery({
     queryKey: ['throw-analytics', groupId],
     queryFn: async (): Promise<ThrowAnalytics> => {
-      // Fetch throws with player info
-      const { data: throws, error } = await supabase
-        .from('game_throws')
-        .select(`
-          id,
-          game_id,
-          game_player_id,
-          turn_number,
-          throw_index,
-          segment,
-          multiplier,
-          score,
-          label,
-          created_at,
-          live_game_players!inner (
-            player_id,
-            player_name,
-            live_games!inner (
-              group_id,
-              status
-            )
-          )
-        `)
-        .eq('live_game_players.live_games.group_id', groupId)
-        .eq('live_game_players.live_games.status', 'completed')
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      
+      const throws = await fetchAnalyticsThrows(groupId!);
+
       // Transform data
       const throwData: ThrowData[] = ((throws || []) as ThrowAnalyticsRow[]).map((t) => ({
         id: t.id,

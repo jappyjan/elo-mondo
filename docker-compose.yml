@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_CONVEX_URL: ${VITE_CONVEX_URL:?Set the Convex deployment URL before building}
     ports:
       - "8080:3000"
     restart: unless-stopped
@@ -12,4 +14,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-

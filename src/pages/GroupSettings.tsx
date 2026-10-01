@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { convex, api } from '@/integrations/convex/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,13 +44,7 @@ export default function GroupSettings() {
     queryKey: ['group', groupId],
     queryFn: async () => {
       if (!groupId) return null;
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .single();
-      if (error) throw error;
-      return data;
+      return convex.query(api.data.group, { groupId });
     },
     enabled: !!groupId,
   });
@@ -60,13 +54,7 @@ export default function GroupSettings() {
     queryKey: ['group-invite-code', groupId],
     queryFn: async () => {
       if (!groupId) return null;
-      const { data, error } = await supabase
-        .from('group_invite_codes')
-        .select('invite_code')
-        .eq('group_id', groupId)
-        .single();
-      if (error) return null; // User may not have access
-      return data;
+      return convex.query(api.data.inviteCode, { groupId });
     },
     enabled: !!groupId,
   });
@@ -76,23 +64,7 @@ export default function GroupSettings() {
     queryKey: ['group-members-full', groupId],
     queryFn: async () => {
       if (!groupId) return [];
-      const { data, error } = await supabase
-        .from('group_members')
-        .select(`
-          id,
-          role,
-          joined_at,
-          players (
-            id,
-            name
-          )
-        `)
-        .eq('group_id', groupId);
-      if (error) throw error;
-      return ((data || []) as GroupMemberRow[]).map((m) => ({
-        ...m,
-        player: m.players
-      })) as GroupMemberWithPlayer[];
+      return convex.query(api.data.members, { groupId });
     },
     enabled: !!groupId,
   });
@@ -103,22 +75,7 @@ export default function GroupSettings() {
     queryFn: async () => {
       if (!groupId || !user) return null;
       
-      const { data: player } = await supabase
-        .from('players')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (!player) return null;
-
-      const { data: membership } = await supabase
-        .from('group_members')
-        .select('role')
-        .eq('group_id', groupId)
-        .eq('player_id', player.id)
-        .single();
-      
-      return membership;
+      return convex.query(api.data.currentMembership, { groupId });
     },
     enabled: !!groupId && !!user,
   });
@@ -128,14 +85,7 @@ export default function GroupSettings() {
   // Send email invite mutation
   const sendInvite = useMutation({
     mutationFn: async (email: string) => {
-      const { error } = await supabase
-        .from('group_invites')
-        .insert({
-          group_id: groupId,
-          email,
-          invited_by: user?.id
-        });
-      if (error) throw error;
+      return convex.mutation(api.data.createInvite, { groupId: groupId!, email });
     },
     onSuccess: () => {
       toast({ title: 'Invite Sent', description: 'Email invitation has been created' });

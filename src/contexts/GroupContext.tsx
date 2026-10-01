@@ -1,7 +1,8 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { convex, api } from "@/integrations/convex/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Group {
   id: string;
@@ -30,15 +31,14 @@ interface GroupContextType {
 const GroupContext = createContext<GroupContextType | undefined>(undefined);
 
 export function GroupProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const { groupId } = useParams<{ groupId: string }>();
 
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
     queryFn: async () => {
       if (!groupId) return null;
-      const { data, error } = await supabase.from("groups").select("*").eq("id", groupId).single();
-      if (error) throw error;
-      return data as Group;
+      return convex.query(api.data.group, { groupId });
     },
     enabled: !!groupId,
   });
@@ -47,17 +47,18 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     queryKey: ["group-members", groupId],
     queryFn: async () => {
       if (!groupId) return [];
-      const { data, error } = await supabase.from("group_members").select("*").eq("group_id", groupId);
-      if (error) throw error;
-      return data as GroupMember[];
+      return convex.query(api.data.members, { groupId });
     },
     enabled: !!groupId,
   });
 
-  // For now, isAdmin and isMember will be determined client-side
-  // In a real app, you'd check against the current user's player_id
-  const isAdmin = false; // Will be updated when we integrate with auth
-  const isMember = false;
+  const { data: currentMembership } = useQuery({
+    queryKey: ['current-membership', groupId, user?.id],
+    queryFn: () => convex.query(api.data.currentMembership, { groupId: groupId! }),
+    enabled: !!groupId && !!user,
+  });
+  const isAdmin = currentMembership?.role === 'admin';
+  const isMember = !!currentMembership;
 
   return (
     <GroupContext.Provider

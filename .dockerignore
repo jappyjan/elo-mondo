@@ -52,3 +52,7 @@ Dockerfile
 docker-compose*.yml
 .dockerignore
 
+
+# Scoped database backups and local credentials
+backups
+*.local

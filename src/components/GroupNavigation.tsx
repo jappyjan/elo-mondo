@@ -3,7 +3,7 @@ import { Target, Trophy, Zap, Crosshair, BarChart3, Settings, LogOut, Users } fr
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { convex, api } from '@/integrations/convex/client';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,13 +24,7 @@ export default function GroupNavigation() {
     queryKey: ['group', groupId],
     queryFn: async () => {
       if (!groupId) return null;
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .single();
-      if (error) return null;
-      return data;
+      return convex.query(api.data.group, { groupId });
     },
     enabled: !!groupId,
   });

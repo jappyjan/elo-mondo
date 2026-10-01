@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLiveGameContext } from '@/contexts/LiveGameContext';
@@ -9,6 +9,7 @@ import { TurnHistory } from './TurnHistory';
 import { GameResults } from './GameResults';
 import { DartThrow } from '@/types/liveGame';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 import { RotateCcw, History, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
@@ -45,6 +46,17 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
 
   const [showBust, setShowBust] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [isPersisting, setIsPersisting] = useState(false);
+  const persisting = useRef(false);
+
+  const persist = async (operation: () => Promise<unknown>) => {
+    if (persisting.current) return;
+    persisting.current = true;
+    setIsPersisting(true);
+    try { await operation(); }
+    catch (error) { toast({ title: 'Unable to save game', description: error instanceof Error ? error.message : 'Try again', variant: 'destructive' }); }
+    finally { persisting.current = false; setIsPersisting(false); }
+  };
 
   useEffect(() => {
     if (showBust) {
@@ -61,11 +73,9 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
     return (
       <GameResults
         playerStates={gameState.playerStates}
-        onNewGame={() => {
-          resetGame();
-        }}
-        onUndo={undoLastDart}
-        canUndo={canUndo}
+        onNewGame={() => { void persist(resetGame); }}
+        onUndo={() => { void persist(undoLastDart); }}
+        canUndo={canUndo && !isPersisting}
         groupId={groupId}
       />
     );
@@ -76,11 +86,11 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
   const turnScore = getCurrentTurnScore();
   const potentialScore = getPotentialScore();
 
-  const handleDartThrow = (dart: DartThrow) => {
-    const result = validateAndThrowDart(dart);
-    if (result.isBust) {
-      setShowBust(true);
-    }
+  const handleDartThrow = async (dart: DartThrow) => {
+    await persist(async () => {
+      const result = await validateAndThrowDart(dart);
+      if (result.isBust) setShowBust(true);
+    });
   };
 
   const getRuleLabels = () => {
@@ -175,10 +185,10 @@ export function GameBoard({ onReset, groupId }: GameBoardProps) {
       {/* Dart Input */}
       <DartInput
         onDartThrow={handleDartThrow}
-        disabled={gameState.currentTurnDarts.length >= 3}
+        disabled={isPersisting || gameState.currentTurnDarts.length >= 3}
         dartsThrown={gameState.currentTurnDarts.length}
-        onUndo={undoLastDart}
-        canUndo={canUndo}
+        onUndo={() => { void persist(undoLastDart); }}
+        canUndo={canUndo && !isPersisting}
       />
 
       {/* Turn History (Collapsible) */}
