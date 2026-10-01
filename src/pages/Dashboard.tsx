@@ -204,7 +204,14 @@ const Dashboard = () => {
       </div>
 
       {/* Elo Progression Chart */}
-      <EloProgressionChart matchHistory={matchHistory} players={players} year={selectedYear} />
+      <EloProgressionChart
+        matchHistory={matchHistory}
+        players={players}
+        year={selectedYear}
+        decayEnabled={decayEnabled}
+        decayHalfLifeDays={eloData?.decayHalfLifeDays}
+        decayStartDay={eloData?.decayStartDay}
+      />
     </div>
   );
 };

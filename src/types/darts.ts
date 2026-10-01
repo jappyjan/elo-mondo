@@ -63,6 +63,7 @@ export interface EloCalculationResponse {
   matchHistory: MatchHistoryEntry[];
   calculatedAt: string;
   decayHalfLifeDays: number;
+  decayStartDay?: number;
   decayEnabled: boolean;
   availableYears: number[];
   selectedYear: number | null;
