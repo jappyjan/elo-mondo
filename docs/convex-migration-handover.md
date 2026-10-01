@@ -293,3 +293,117 @@ If the frontend must roll back before Convex receives writes, restore the old
 Coolify image/config and lift the source write freeze. If Convex has received
 new writes, export them first and reconcile them deliberately before restoring
 Supabase access; flipping back alone would lose those new records.
+
+
+## Cutover progress on the new machine (2026-10-01)
+
+This section supersedes the previous machine's paths and validation status.
+
+- Checkout: `/Users/jappy/code/jappyjan/elo-mondo`.
+- Supabase and Convex were authenticated separately; credentials remain in their
+  local stores. No production auth keys were regenerated.
+- Current `main` (`8d0830f`) was merged into the migration branch, preserving the
+  August Elo chart improvements. The deployed Supabase edge function still
+  reports `decayAppliedInMatches=false`, so Convex retains that deployed behavior.
+  Both decay-on and decay-off parity were checked. `decayStartDay=14` is exposed
+  for the newer chart.
+- Local checks: 17 test files / 67 tests, frontend/backend type checks, ESLint
+  (zero errors, existing warnings), and the Docker production build passed.
+  The built Docker bundle targets production Convex and excludes the development
+  URL and Supabase project URL.
+- Development browser rehearsal passed wrong-password rejection, Mailpit reset,
+  sign-out/relogin, account verification, darts, undo, reload, game completion,
+  finishing-dart undo, and saving results. Synthetic development account/group,
+  match, throw, and session data were cleaned up with `rehearsal:cleanup`.
+- T3 preview must use `http://192.168.178.106:8080` on this machine; its own
+  `localhost:8080` address did not reach the Vite process.
+- Coolify context: `netcup`; resource `s4csgg0okwg00swkg4ggk8oo`.
+  Repository `jappyjan/elo-mondo`, Dockerfile build, port 3000. The original branch
+  was `main` with automatic deployment enabled. Latest old deployment commit:
+  `8d0830f2a5ec6ce8e67eae03f38f7ca308ee4934`; alternate rollback image:
+  `392a67d48cd943abef38f22679c5f48261282fb4`.
+- Original Coolify config and rollback metadata are private under
+  `/Users/jappy/.local/share/elo-mondo-cutover/20261001T113241Z/`.
+  Coolify's JSON output unexpectedly returned manual webhook secrets; all four
+  were replaced and verified. Do not restore those old secrets during rollback.
+  The repository has no manual GitHub hooks to update.
+- Coolify now has production `VITE_CONVEX_URL` as a build-only variable and an
+  enabled `/health` check. Changing that variable alone does not redeploy Vite.
+- Production backend code was deployed and a pre-import export confirmed all
+  application/auth tables empty (`_tables` is export metadata, not app data).
+- Source writes were frozen at `2026-10-01T11:48:24Z` using
+  `scripts/migration/freeze-digimondo.sql`. The guards cover the group's complete
+  dependent closure and related accounts, and reject old clients' writes.
+  Installation and removal were rehearsed in rolled-back transactions. Public
+  table triggers are `ENABLE ALWAYS`; managed auth table triggers use the normal
+  origin mode because Supabase reserves `ALTER TABLE` to their owner. There are
+  26 guards (DML and TRUNCATE on 13 tables). Existing reads/policies remain intact.
+- Remove the freeze with `supabase db query --linked --output json --file
+  scripts/migration/unfreeze-digimondo.sql` only as part of a deliberate rollback
+  after exporting and addressing new Convex writes.
+- Final source snapshot:
+  `backups/digimondo-20261001T114828290632Z/snapshot.json`.
+  Its checksum/references passed; counts remain 1 group, 29 memberships/players,
+  15 accounts, 14 guests, 271 matches, 730 participants, 201 games, 667 game players,
+  and 17,064 throws. Both in-progress games are preserved.
+- A separate private local copy with source migrations, source schema catalog,
+  and freeze/unfreeze scripts is under
+  `/Users/jappy/.local/share/elo-mondo-backups/digimondo-20261001T114828290632Z/`.
+  These remain two local copies. The catalog also captures live trigger/function
+  definitions absent from Git; a direct `pg_dump` attempt stalled and was stopped.
+- `node scripts/migration/check-elo.mjs --prod` checks production with decay off;
+  add `--decay` to compare all raw ratings and history with decay on. Decayed
+  display values may differ by one rounding unit between request timestamps.
+
+The completion entry below records the final verified import and frontend switch.
+
+
+## Cutover completed — 2026-10-01
+
+- Final production import passed a fresh export comparison of every business
+  field and all 15 reset-only account mappings before frontend activation.
+  Verification report:
+  `backups/digimondo-20261001T114828290632Z/convex-prod-20261001T115133779819Z.verification.json`.
+- Production Elo parity passed for 2025 and 2026 with decay both on and off.
+  Roles are 1 admin / 28 members, guests remain 14, and both in-progress games
+  retain their original state and owner mappings.
+- Coolify deployed commit `ddd28e5b57e1b035b494f5aaba209901a309ae52` from
+  `migration/supabase-to-convex`. Deployment `rhkbacd6d0pbsuasnoaopbjo` finished
+  at `2026-10-01T11:53:03Z`; app status is `running:healthy`.
+  `main` remains unchanged. The migration branch is now the production branch.
+- Both `https://elo.janjaap.de/health` and
+  `https://elo.apps.janjaap.de/health` return HTTP 200. The deployed bundle
+  `/assets/index-BgXlrI7G.js` was inspected and targets production Convex only.
+- Live browser checks passed the original DIGIMONDO UUID route, dashboard and
+  analytics, imported admin reset through Mailpit, password relogin, new-account
+  verification, and a controlled game in an isolated validation group.
+  That game passed dart/undo/reload, completion, finishing-dart undo, and saving
+  the match. Its export contained 9 darts, ranks 1/2, one match and two participants.
+- An early automation sequence used a non-matching link locator and transitional
+  page state. Repeating with explicit locators and readiness checks confirmed
+  stable login and navigation; no persistent auth failure was reproduced and
+  no auth/session implementation change was made.
+- All synthetic production data was removed through the restricted internal
+  `rehearsal:cleanup` mutation. A final export confirmed every business field
+  still matches the frozen source, with 1 group, 29 players/memberships,
+  271 matches, 730 participants, 201 games, 667 game players and 17,064 throws.
+  All 15 source account mappings remain; no synthetic account remains.
+- Password resets/sessions are now live. The final check intentionally validates
+  account mappings rather than pristine auth metadata/secrets. Do not rerun the
+  reset-only import verifier against this active backend.
+- Production backup after validation/cleanup:
+  `backups/digimondo-20261001T114828290632Z/convex-prod-after-cutover.zip`.
+  Business/account mapping report: `post-cutover-verification.json` in that folder.
+  The original snapshot, code/schema sources, pristine-import report and final
+  exports were retained in both private local backup locations. Convex also
+  retains its created snapshot exports in the production dashboard.
+- The imported admin smoke test set a generated password, stored only in the
+  ignored, permission-600 `production-smoke-credentials.local` in that private
+  backup directory. The owner can use “Set a new password” to choose their own.
+- Supabase is intact, with the scoped write freeze still installed. Removing it
+  is a separate deliberate rollback action after exporting/reconciling Convex
+  changes. No Supabase deletion or cancellation was performed.
+- Automatic deployment was temporarily disabled during the cutover and final
+  documentation push, then restored on the migration branch. Rollback details
+  and original/prepared/final Coolify configurations remain in the private
+  cutover directory. Preserve the replacement webhook secrets on rollback.
