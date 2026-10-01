@@ -1,19 +1,17 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
 import { mutation, query, QueryCtx, MutationCtx } from './_generated/server';
 import { Doc } from './_generated/dataModel';
 import { businessTables } from './schema';
 import { calculateElo } from './eloCalculation';
+import { passkeyIdentity } from './passkeySecurity';
 
 type ReadCtx = QueryCtx | MutationCtx;
 export async function byId<T extends keyof typeof businessTables>(ctx: ReadCtx, table: T, id: string): Promise<Doc<T> | null> {
   return await ctx.db.query(table as keyof typeof businessTables).withIndex('by_business_id', q => q.eq('id', id)).unique() as unknown as Doc<T> | null;
 }
 export async function currentUser(ctx: ReadCtx) {
-  const id = await getAuthUserId(ctx);
-  const user = id ? await ctx.db.get(id) : null;
-  return user && !user.disabled ? user : null;
+  return (await passkeyIdentity(ctx))?.user ?? null;
 }
 export async function membership(ctx: ReadCtx, groupId: string) {
   const user = await currentUser(ctx);
@@ -31,7 +29,7 @@ function publicPlayer(player: { id: string; name: string; created_at: string; up
 }
 export const viewer = query({ args: {}, handler: async ctx => {
   const user = await currentUser(ctx);
-  return user ? { id: user.legacyId ?? user._id, email: user.email, name: user.name } : null;
+  return user ? { id: user.legacyId ?? user._id, name: user.name } : null;
 }});
 export const group = query({ args: { groupId: v.string() }, handler: async (ctx, { groupId }) => byId(ctx, 'groups', groupId) });
 export const players = query({ args: { ids: v.optional(v.array(v.string())) }, handler: async (ctx, { ids }) => {
@@ -120,15 +118,6 @@ export const joinGroup = mutation({ args: { code: v.string() }, handler: async (
   if (!player) throw new ConvexError('Player profile is missing');
   await addMembership(ctx, invite.group_id, player.id);
   return invite.group_id;
-}});
-export const createInvite = mutation({ args: { groupId: v.string(), email: v.string() }, handler: async (ctx, { groupId, email }) => {
-  await requireMember(ctx, groupId, true);
-  const user = (await currentUser(ctx))!;
-  email = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ConvexError('Enter a valid email');
-  const existing = await ctx.db.query('group_invites').withIndex('by_group_email', q => q.eq('group_id', groupId).eq('email', email)).unique();
-  if (existing) throw new ConvexError('This email has already been invited');
-  await ctx.db.insert('group_invites', { id: crypto.randomUUID(), group_id: groupId, email, invited_by: user.legacyId ?? user._id, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
 }});
 export const addPlayer = mutation({ args: { name: v.string(), groupId: v.optional(v.string()) }, handler: async (ctx, { name, groupId }) => {
   if (!await currentUser(ctx)) throw new ConvexError('Login required');

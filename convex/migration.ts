@@ -22,9 +22,8 @@ export const importAccounts = internalMutation({
         continue;
       }
       if (await ctx.db.query('users').withIndex('email', q => q.eq('email', row.email)).first()) throw new Error('Email already belongs to another user');
-      const userId = await ctx.db.insert('users', row);
-      // No old hashes or shared temporary password: email reset is required.
-      await ctx.db.insert('authAccounts', { userId, provider: 'password', providerAccountId: row.email, ...(row.emailVerificationTime ? { emailVerified: row.email } : {}) });
+      // Import identity only. Claim eligibility is reviewed and granted separately.
+      await ctx.db.insert('users', { ...row, claimEligible: false });
       inserted++;
     }
     return { inserted, existing: rows.length - inserted };

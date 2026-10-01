@@ -28,7 +28,7 @@ describe('migration rehearsal cleanup', () => {
     await t.run(async ctx => {
       expect((await ctx.db.query('groups').collect()).map(g => g.name)).toEqual(['DIGIMONDO']);
       expect((await ctx.db.query('users').collect()).map(u => u.legacyId)).toEqual(['real']);
-      expect(await ctx.db.query('authAccounts').collect()).toHaveLength(1);
+      expect(await ctx.db.query('authAccounts').collect()).toHaveLength(0);
       expect(await ctx.db.query('authSessions').collect()).toHaveLength(0);
       expect(await ctx.db.query('authRefreshTokens').collect()).toHaveLength(0);
       expect(await ctx.db.query('authVerifiers').collect()).toHaveLength(0);

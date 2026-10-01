@@ -9,11 +9,15 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as data from "../data.js";
 import type * as eloCalculation from "../eloCalculation.js";
 import type * as http from "../http.js";
 import type * as live from "../live.js";
 import type * as migration from "../migration.js";
+import type * as passkeySecurity from "../passkeySecurity.js";
+import type * as passkeyStore from "../passkeyStore.js";
+import type * as passkeys from "../passkeys.js";
 import type * as rehearsal from "../rehearsal.js";
 
 import type {
@@ -24,11 +28,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  crons: typeof crons;
   data: typeof data;
   eloCalculation: typeof eloCalculation;
   http: typeof http;
   live: typeof live;
   migration: typeof migration;
+  passkeySecurity: typeof passkeySecurity;
+  passkeyStore: typeof passkeyStore;
+  passkeys: typeof passkeys;
   rehearsal: typeof rehearsal;
 }>;
 

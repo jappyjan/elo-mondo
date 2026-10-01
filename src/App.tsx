@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import GroupNavigation from "@/components/GroupNavigation";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import Account from "./pages/Account";
 import Groups from "./pages/Groups";
 import Dashboard from "./pages/Dashboard";
 import Matches from "./pages/Matches";
@@ -45,6 +46,7 @@ const App = () => (
               {/* Public routes */}
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/groups" element={<Groups />} />
               
               {/* Group-scoped routes */}

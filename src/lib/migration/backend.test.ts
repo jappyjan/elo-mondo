@@ -16,19 +16,23 @@ async function fixture() {
   ] } });
   await t.mutation(internal.migration.importBatch, { batch: { table: 'group_members', rows: [{ id: 'membership', group_id: 'group', player_id: 'owner', role: 'admin', joined_at: now }] } });
   const user = await t.run(ctx => ctx.db.query('users').first());
-  const owner = t.withIdentity({ subject: `${user!._id}|session` });
+  const sessionId = await t.run(async ctx => {
+    const credentialId = await ctx.db.insert('passkeys', { userId: user!._id, credentialId: 'test-key', publicKey: new ArrayBuffer(1), counter: 0, transports: [], deviceType: 'singleDevice', backedUp: false, name: 'Test', createdAt: Date.now() });
+    const id = await ctx.db.insert('authSessions', { userId: user!._id, expirationTime: Date.now() + 86400000 });
+    await ctx.db.insert('passkeySessions', { userId: user!._id, sessionId: id, credentialId, verifiedAt: Date.now(), epoch: 0 });
+    return id;
+  });
+  const owner = t.withIdentity({ subject: `${user!._id}|${sessionId}` });
   return { t, owner };
 }
 
 describe('Convex migration and authorization', () => {
-  it('preserves a migrated account-to-player mapping and requires a password reset', async () => {
+  it('preserves a migrated account-to-player mapping without provisioning password authentication', async () => {
     const { t, owner } = await fixture();
-    expect(await owner.query(api.data.viewer)).toMatchObject({ id: 'legacy-owner', email: 'owner@example.test' });
+    expect(await owner.query(api.data.viewer)).toMatchObject({ id: 'legacy-owner' });
     expect(await owner.query(api.data.myGroups)).toMatchObject([{ id: 'group', role: 'admin' }]);
     const accounts = await t.run(ctx => ctx.db.query('authAccounts').collect());
-    expect(accounts).toHaveLength(1);
-    expect(accounts[0]).toMatchObject({ provider: 'password', providerAccountId: 'owner@example.test', emailVerified: 'owner@example.test' });
-    expect(accounts[0].secret).toBeUndefined();
+    expect(accounts).toEqual([]);
     expect((await t.query(api.data.players, {}))[0]).not.toHaveProperty('user_id');
   });
 

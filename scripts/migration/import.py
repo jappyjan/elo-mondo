@@ -58,20 +58,14 @@ def verify_export(archive, payload):
         users = read_table('users')
         if len(users) != len(accounts):
             raise ValueError('Account count differs from source')
-        user_ids = {row['legacyId']: row['_id'] for row in users}
         auth_accounts = read_table('authAccounts')
-        if len(auth_accounts) != len(accounts):
-            raise ValueError('Authentication account count differs from source')
+        if auth_accounts:
+            raise ValueError('Identity-only import must not provision password authentication')
         for expected in accounts:
             user = next((u for u in users if u.get('legacyId') == expected['legacyId']), None)
             if not user or any(user.get(k) != v for k, v in expected.items()):
                 raise ValueError('Imported account metadata differs from source')
-            account = next((a for a in auth_accounts if a['userId'] == user_ids[expected['legacyId']]), None)
-            if not account or account['provider'] != 'password' or account['providerAccountId'] != expected['email']:
-                raise ValueError('Imported account mapping differs from source')
-            if account.get('secret'):
-                raise ValueError('Unexpected password in reset-only import')
-    return {**{name: len(rows) for name, rows in tables.items()}, 'users': len(accounts), 'authAccounts': len(accounts)}
+    return {**{name: len(rows) for name, rows in tables.items()}, 'users': len(accounts), 'authAccounts': 0}
 
 
 def main():
