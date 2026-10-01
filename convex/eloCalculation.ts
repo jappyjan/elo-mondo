@@ -267,6 +267,8 @@ function processMatch(
 // Lightweight simulation harness for regressions:
 // run with ELO_SIMULATE=1 to log deterministic scenarios to stdout.
 export function calculateElo(players: Player[], allMatches: Match[], applyDecayForOutput = true, selectedYear: number | null = null, includeProvisional = true, calculationTime = new Date()) {
+  // The deployed Supabase function applies decay only to output ratings.
+  // Preserve its historical calculation during the backend migration.
   const applyDecayForMatches = false;
     // Extract available years from matches
     const typedMatches = allMatches;
@@ -426,5 +428,5 @@ export function calculateElo(players: Player[], allMatches: Match[], applyDecayF
     const sortedRatings = filteredRatings;
 
 
-  return { players: sortedRatings, matchHistory, calculatedAt: now.toISOString(), decayHalfLifeDays: DECAY_HALF_LIFE_DAYS, decayEnabled: applyDecayForOutput, decayAppliedInMatches: false, availableYears, selectedYear };
+  return { players: sortedRatings, matchHistory, calculatedAt: now.toISOString(), decayHalfLifeDays: DECAY_HALF_LIFE_DAYS, decayStartDay: DECAY_START_DAY, decayEnabled: applyDecayForOutput, decayAppliedInMatches: applyDecayForMatches, availableYears, selectedYear };
 }
