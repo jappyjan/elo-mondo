@@ -158,6 +158,46 @@ describe('passkey authentication', () => {
     await expect(t.action(internal.passkeys.issueLegacyClaim, { legacyId: 'legacy', allowActivatedAccount: true })).rejects.toThrow('unavailable');
   });
 
+  it('extends an existing claim without changing its code or reviving unusable grants', async () => {
+    const { t, userId } = await legacy();
+    await t.action(internal.passkeys.issueLegacyClaim, { legacyId: 'legacy', allowActivatedAccount: true });
+    const claim = await t.action(internal.passkeys.issueLegacyClaim, { legacyId: 'legacy', allowActivatedAccount: true });
+    const expiresAt = Date.now() + 63 * 86400000;
+    await t.run(async ctx => {
+      await ctx.db.insert('passkeyGrants', { userId, kind: 'claim', hash: 'expired', createdAt: Date.now(), expiresAt: Date.now() - 1 });
+      await ctx.db.insert('passkeyGrants', { userId, kind: 'recovery', hash: 'recovery', createdAt: Date.now() });
+      for (const state of ['disabled', 'migrated', 'excluded']) {
+        const id = await ctx.db.insert('users', { legacyId: state, claimEligible: true, ...(state === 'disabled' ? { disabled: true } : {}), ...(state === 'migrated' ? { passkeyMigratedAt: Date.now() } : {}) });
+        await ctx.db.insert('passkeyGrants', { userId: id, kind: 'claim', hash: state, createdAt: Date.now(), expiresAt: Date.now() + 86400000 });
+      }
+    });
+    const before = await t.run(ctx => ctx.db.query('passkeyGrants').collect());
+    const args = { legacyIds: ['legacy', 'legacy', 'disabled', 'migrated'], expiresAt, dryRun: true };
+    const planned = await t.mutation(internal.passkeyStore.extendClaims, args);
+    expect(planned.extended).toEqual([{ legacyId: 'legacy', expiresAt }]);
+    expect(await t.run(ctx => ctx.db.query('passkeyGrants').collect())).toEqual(before);
+    await t.mutation(internal.passkeyStore.extendClaims, { ...args, dryRun: false });
+    const after = await t.run(ctx => ctx.db.query('passkeyGrants').collect());
+    expect(after).toEqual(before.map(grant => grant.userId === userId && grant.kind === 'claim' && grant.consumedAt === undefined && grant.expiresAt! > Date.now() ? { ...grant, expiresAt } : grant));
+    expect((await t.mutation(internal.passkeyStore.extendClaims, { ...args, expiresAt: expiresAt - 86400000, dryRun: false })).extended).toEqual([]);
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 8 * 86400000);
+    try {
+      const prepared = await t.action(api.passkeys.begin, { purpose: 'claim', code: claim.code });
+      expect((await verify(t, prepared, authenticator().registration(prepared))).userId).toBe(userId);
+    } finally { clock.mockRestore(); }
+    expect((await t.mutation(internal.passkeyStore.extendClaims, { ...args, dryRun: false })).extended).toEqual([]);
+  });
+
+  it('rejects invalid extension deadlines without changing grants', async () => {
+    const { t } = await legacy();
+    await t.action(internal.passkeys.issueLegacyClaim, { legacyId: 'legacy', allowActivatedAccount: true });
+    const before = await t.run(ctx => ctx.db.query('passkeyGrants').collect());
+    for (const expiresAt of [Date.now() - 1, Date.now() + 91 * 86400000]) {
+      await expect(t.mutation(internal.passkeyStore.extendClaims, { legacyIds: ['legacy'], expiresAt, dryRun: false })).rejects.toThrow('ninety days');
+    }
+    expect(await t.run(ctx => ctx.db.query('passkeyGrants').collect())).toEqual(before);
+  });
+
   it('requires a recent, live passkey session to add/remove keys or regenerate codes', async () => {
     const { t, owner, session } = await registered();
     const [key] = await owner.query(api.passkeyStore.list);

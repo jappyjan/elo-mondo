@@ -208,6 +208,32 @@ export const issueClaim = internalMutation({ args: {
   return { name: player?.name ?? user.name ?? 'Player', legacyId: user.legacyId };
 }});
 
+// Extend existing codes only: never revive revoked/expired grants or reclaim an account.
+export const extendClaims = internalMutation({ args: {
+  legacyIds: v.array(v.string()), expiresAt: v.number(), dryRun: v.boolean(),
+}, handler: async (ctx, args) => {
+  const now = Date.now();
+  if (!Number.isFinite(args.expiresAt) || args.expiresAt <= now || args.expiresAt > now + 90 * 86400000) {
+    throw new ConvexError('Choose a future claim expiry within ninety days');
+  }
+  const extended: { legacyId: string; expiresAt: number }[] = [];
+  for (const legacyId of new Set(args.legacyIds)) {
+    const user = await ctx.db.query('users').withIndex('by_legacy_id', q => q.eq('legacyId', legacyId)).unique();
+    if (!user || user.disabled || !user.claimEligible || user.passkeyMigratedAt !== undefined
+      || await ctx.db.query('passkeys').withIndex('by_user', q => q.eq('userId', user._id)).first()) continue;
+    const grants = await ctx.db.query('passkeyGrants').withIndex('by_user', q => q.eq('userId', user._id)).collect();
+    for (const grant of grants) {
+      if (grant.kind !== 'claim' || !validGrant(grant) || grant.expiresAt === undefined || grant.expiresAt >= args.expiresAt) continue;
+      if (!args.dryRun) {
+        await ctx.db.patch(grant._id, { expiresAt: args.expiresAt });
+        await ctx.db.insert('passkeyAudit', { userId: user._id, event: 'extend-claim', at: now });
+      }
+      extended.push({ legacyId, expiresAt: args.expiresAt });
+    }
+  }
+  return { dryRun: args.dryRun, extended };
+}});
+
 export const auditLegacy = internalQuery({ args: {}, handler: async ctx => {
   return Promise.all((await ctx.db.query('users').collect()).map(async user => {
     const player = await ctx.db.query('players').withIndex('by_user', q => q.eq('user_id', user.legacyId ?? user._id)).unique();
