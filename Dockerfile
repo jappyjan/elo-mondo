@@ -23,6 +23,8 @@ RUN test -n "$VITE_CONVEX_URL" && bun run build
 
 # Production stage
 FROM nginx:alpine AS production
+# CVE-2026-111497: the base image may lag the Alpine security package.
+RUN apk add --no-cache 'brotli-libs>=1.2.1-r0'
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
